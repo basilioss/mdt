@@ -1,0 +1,104 @@
+#!/bin/sh
+# https://github.com/basilioss/mdt
+
+# Configuration ################################
+
+dir="${ZK_NOTEBOOK_DIR}"
+inbox="${dir}/pages/todo.md"
+color=5
+prompt="◆"
+cursor="➔"
+item_width=75
+width=65
+
+###############################################
+
+choice="$(gum choose \
+  --cursor.foreground="${color}" --cursor="${cursor} " \
+  "List inbox" "Add inbox" "List" "Add" "Edit")"
+
+case "${choice}" in
+  "List")
+    cd "${dir}" || exit
+    note="$(grep -lR --exclude-dir=".*" "^[[:space:]]*- \[ \]" \
+      | gum filter \
+      --indicator="${cursor}" \
+      --prompt="${prompt} " \
+      --indicator.foreground="${color}" \
+      --match.foreground="${color}")"
+    [ -z "${note}" ] && exit
+    if ! grep -q "\- \[ \]" "${note}"; then
+      echo "Yey, nothing left to do" && exit
+    fi
+    selected_items="$(grep \
+      "\- \[ ] " "${note}" \
+      | sed -e 's/^[[:space:]]*- \[ \]//' \
+      | gum choose --no-limit --item.width="${item_width}" \
+      --cursor="${cursor} " \
+      --cursor.foreground="${color}" \
+      --selected.foreground="${color}" \
+      --cursor-prefix "[ ] " \
+      --selected-prefix "[✓] " \
+      --unselected-prefix "[ ] ")"
+    for item in ${selected_items}; do
+      sed -i "s/\[ \] ${item}/\[x\] ${item}/g" "${note}" 2> /dev/null
+    done
+    ;;
+  "List inbox")
+    if ! grep -q "\- \[ \]" "${inbox}"; then
+      echo "Yey, nothing left to do" && exit
+    fi
+    selected_items="$(grep \
+      "\- \[ ] " "${inbox}" \
+      | sed -e 's/^[[:space:]]*- \[ \]//' \
+      | gum choose --no-limit --item.width="${item_width}" \
+      --cursor="${cursor} " \
+      --cursor.foreground="${color}" \
+      --selected.foreground="${color}" \
+      --cursor-prefix "[ ] " \
+      --selected-prefix "[✓] " \
+      --unselected-prefix "[ ] ")"
+    for item in ${selected_items}; do
+      sed -i "s/\[ \] ${item}/\[x\] ${item}/g" "${inbox}" 2> /dev/null
+    done
+    ;;
+  "Add")
+    cd "${dir}" || exit
+    note="$(grep -lR --exclude-dir=".*" "^[[:space:]]*- \[.\]" \
+      | gum filter \
+      --indicator="${cursor}" \
+      --prompt="${prompt} " \
+      --indicator.foreground="${color}" \
+      --match.foreground="${color}")"
+    [ -z "${note}" ] && exit
+    line="$(grep --line-number --extended-regexp \
+      "\- \[.?]" "${note}" | cut -d: -f1 | head -1)"
+    todo="$(gum input --prompt="${prompt} " --placeholder "Got something to do?" --width "${width}")"
+    [ -n "${todo}" ] && sed -i "${line}i - [ ] ${todo}" "${note}"
+    ;;
+  "Add inbox")
+    line="$(grep --line-number --extended-regexp \
+      "\- \[.?]" "${inbox}" | cut -d: -f1 | head -1)"
+    todo="$(gum input --prompt="${prompt} " --placeholder "Got something to do?" --width "${width}")"
+    [ -n "$todo" ] && sed -i "${line}i - [ ] ${todo}" "${inbox}"
+    ;;
+  "Edit")
+    cd "${dir}" || exit
+    note="$(grep -lR --exclude-dir=".*" "^[[:space:]]*- \[.\]" \
+      | gum filter \
+      --indicator="${cursor}" \
+      --prompt="${prompt} " \
+      --indicator.foreground="${color}" \
+      --match.foreground="${color}")"
+    [ -n "${note}" ] && item="$(grep \
+      "^[[:space:]]*- \[.\] " "${note}" \
+      | sed -e 's/^[[:space:]]*- \[.\] //' \
+      | gum choose --item.width="${item_width}" \
+      --cursor="${cursor} " \
+      --cursor.foreground="${color}" \
+      --selected.foreground="${color}")"
+    [ -n "${item}" ] && todo="$(gum input \
+      --prompt="${prompt} " --width "${width}" --value "${item}")"
+    [ -n "${todo}" ] && sed -i "s|^\([[:space:]]*- \[.\]\) ${item}$|\\1 ${todo}|" "${note}"
+    ;;
+esac
