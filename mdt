@@ -3,8 +3,8 @@
 
 # Configuration ################################
 
-dir="${ZK_NOTEBOOK_DIR}"
-inbox="${dir}/pages/todo.md"
+dir="${ZK_NOTEBOOK_DIR}/pages"
+inbox="${dir}/todo.md"
 color=5
 prompt="◆"
 cursor="➔"
@@ -26,10 +26,12 @@ case "${choice}" in
       --prompt="${prompt} " \
       --indicator.foreground="${color}" \
       --match.foreground="${color}")"
+
     [ -z "${note}" ] && exit
-    if ! grep -q "\- \[ \]" "${note}"; then
+    if ! grep -q "\- \[ \]" "${note}" 2> /dev/null; then
       echo "Yey, nothing left to do" && exit
     fi
+
     selected_items="$(grep \
       "\- \[ ] " "${note}" \
       | sed -e 's/^[[:space:]]*- \[ \]//' \
@@ -40,14 +42,16 @@ case "${choice}" in
       --cursor-prefix "[ ] " \
       --selected-prefix "[✓] " \
       --unselected-prefix "[ ] ")"
+
     for item in ${selected_items}; do
       sed -i "s/\[ \] ${item}/\[x\] ${item}/g" "${note}" 2> /dev/null
     done
     ;;
   "List inbox")
-    if ! grep -q "\- \[ \]" "${inbox}"; then
+    if ! grep -q "\- \[ \]" "${inbox}" 2> /dev/null; then
       echo "Yey, nothing left to do" && exit
     fi
+
     selected_items="$(grep \
       "\- \[ ] " "${inbox}" \
       | sed -e 's/^[[:space:]]*- \[ \]//' \
@@ -58,6 +62,7 @@ case "${choice}" in
       --cursor-prefix "[ ] " \
       --selected-prefix "[✓] " \
       --unselected-prefix "[ ] ")"
+
     for item in ${selected_items}; do
       sed -i "s/\[ \] ${item}/\[x\] ${item}/g" "${inbox}" 2> /dev/null
     done
@@ -65,21 +70,44 @@ case "${choice}" in
   "Add")
     cd "${dir}" || exit
     note="$(grep -lR --exclude-dir=".*" "^[[:space:]]*- \[.\]" \
-      | gum filter \
+      | gum filter --no-strict \
       --indicator="${cursor}" \
       --prompt="${prompt} " \
       --indicator.foreground="${color}" \
       --match.foreground="${color}")"
+
     [ -z "${note}" ] && exit
+    if [ ! -f "${note}" ]; then
+      gum confirm \
+        --selected.background="${color}" \
+        --selected.foreground="#ffffff" \
+        --prompt.padding="0 2" \
+        "File does not exist, create?"
+      if [ $? -eq 0 ]; then
+        printf "%s\n\n" "# ${note}" > "${note}.md"
+        note="${note}.md"
+      else
+        exit
+      fi
+    fi
+
     line="$(grep --line-number --extended-regexp \
       "\- \[.?]" "${note}" | cut -d: -f1 | head -1)"
-    todo="$(gum input --prompt="${prompt} " --placeholder "Got something to do?" --width "${width}")"
-    [ -n "${todo}" ] && sed -i "${line}i - [ ] ${todo}" "${note}"
+    todo="$(gum input --prompt="${prompt} " \
+      --placeholder "Got something to do?" --width "${width}")"
+
+    [ -z "${todo}" ] && exit
+    if [ -z "${line}" ]; then
+      echo "- [ ] ${todo}" >> "${note}"
+    else
+      sed -i "${line}i - [ ] ${todo}" "${note}"
+    fi
     ;;
   "Add inbox")
     line="$(grep --line-number --extended-regexp \
       "\- \[.?]" "${inbox}" | cut -d: -f1 | head -1)"
-    todo="$(gum input --prompt="${prompt} " --placeholder "Got something to do?" --width "${width}")"
+    todo="$(gum input --prompt="${prompt} " \
+      --placeholder "Got something to do?" --width "${width}")"
     [ -n "$todo" ] && sed -i "${line}i - [ ] ${todo}" "${inbox}"
     ;;
   "Edit")
@@ -90,6 +118,7 @@ case "${choice}" in
       --prompt="${prompt} " \
       --indicator.foreground="${color}" \
       --match.foreground="${color}")"
+
     [ -n "${note}" ] && item="$(grep \
       "^[[:space:]]*- \[.\] " "${note}" \
       | sed -e 's/^[[:space:]]*- \[.\] //' \
@@ -97,8 +126,11 @@ case "${choice}" in
       --cursor="${cursor} " \
       --cursor.foreground="${color}" \
       --selected.foreground="${color}")"
+
     [ -n "${item}" ] && todo="$(gum input \
       --prompt="${prompt} " --width "${width}" --value "${item}")"
-    [ -n "${todo}" ] && sed -i "s|^\([[:space:]]*- \[.\]\) ${item}$|\\1 ${todo}|" "${note}"
+
+    [ -n "${todo}" ] && sed -i \
+      "s|^\([[:space:]]*- \[.\]\) ${item}$|\\1 ${todo}|" "${note}"
     ;;
 esac
