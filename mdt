@@ -3,15 +3,97 @@
 
 # Configuration ################################
 
-dir="${ZK_NOTEBOOK_DIR}/pages"
-inbox="${dir}/todo.md"
-color=5
-prompt="◆"
-cursor="➔"
-item_width=75
-width=65
+dir="${MDT_DIR}"
+inbox="${MDT_INBOX}"
+color="${MDT_MAIN_COLOR:-5}"
+prompt="${MDT_PROMPT-◆}"
+cursor="${MDT_CURSOR:-➔}"
+item_width="${MDT_ITEM_WIDTH:-75}"
+width="${MDT_WIDTH:-65}"
 
-###############################################
+################################################
+
+print_help()
+{
+	printf '%s\n' "Minimal todo app on top of plain markdown files"
+  printf "\n"
+	printf 'Usage: %s [-d|--dir <arg>] [-i|--inbox <arg>] [--color <arg>]\n\t[--prompt <arg>] [--cursor <arg>] [--item-width <arg>]\n\t[--width <arg>] [-h|--help]\n' "$0"
+	printf '  %s\n' "-d, --dir: Path to the todos directory"
+	printf '  %s\n' "-i, --inbox: Path to the inbox note"
+	printf '  %s\n' "-h, --help: Prints help"
+}
+
+parse_commandline()
+{
+	while test $# -gt 0
+	do
+		_key="$1"
+		case "$_key" in
+			-d|--dir)
+				dir="$2"
+				shift
+				;;
+			--dir=*)
+				dir="${_key##--dir=}"
+				;;
+			-i|--inbox)
+				inbox="$2"
+				shift
+				;;
+			--inbox=*)
+				inbox="${_key##--inbox=}"
+				;;
+			--color)
+				color="$2"
+				shift
+				;;
+			--color=*)
+				color="${_key##--color=}"
+				;;
+			--prompt)
+				prompt="$2"
+				shift
+				;;
+			--prompt=*)
+				prompt="${_key##--prompt=}"
+				;;
+			--cursor)
+				cursor="$2"
+				shift
+				;;
+			--cursor=*)
+				cursor="${_key##--cursor=}"
+				;;
+			--item-width)
+				item_width="$2"
+				shift
+				;;
+			--item-width=*)
+				item_width="${_key##--item-width=}"
+				;;
+			--width)
+				width="$2"
+				shift
+				;;
+			--width=*)
+				width="${_key##--width=}"
+				;;
+			-h|--help)
+				print_help
+				exit 0
+				;;
+			*)
+				echo "ERROR: Got an unexpected argument '$1'" && exit 1
+				;;
+		esac
+		shift
+	done
+}
+
+parse_commandline "$@"
+
+[ -z "$dir" ] && echo "ERROR: No directory specified" && exit 1
+[ -z "$inbox" ] && echo "ERROR: No inbox specified" && exit 1
 
 choice="$(gum choose \
   --cursor.foreground="${color}" --cursor="${cursor} " \
