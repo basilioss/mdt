@@ -13,14 +13,24 @@ width="${MDT_WIDTH:-65}"
 
 ################################################
 
+_me="${0##*/}"
+
 print_help()
 {
-	printf '%s\n' "Minimal todo app on top of plain markdown files"
-  printf "\n"
-	printf 'Usage: %s [-d|--dir <arg>] [-i|--inbox <arg>] [--color <arg>]\n\t[--prompt <arg>] [--cursor <arg>] [--item-width <arg>]\n\t[--width <arg>] [-h|--help]\n' "$0"
-	printf '  %s\n' "-d, --dir: Path to the todos directory"
-	printf '  %s\n' "-i, --inbox: Path to the inbox note"
-	printf '  %s\n' "-h, --help: Prints help"
+  printf %s "\
+${_me} - simple todo app on top of plain markdown files
+
+Usage
+  ${_me} [-d|--dir <arg>] [-i|--inbox <arg>] [--color <arg>]
+  [--prompt <arg>] [--cursor <arg>] [--item-width <arg>]
+  [--width <arg>] [-h|--help]
+
+Options
+  -d, --dir           Path to the todos directory
+  -i, --inbox         Path to the inbox note
+  -h, --help          Print help
+"
+exit 0
 }
 
 parse_commandline()
@@ -28,191 +38,149 @@ parse_commandline()
 	while test $# -gt 0
 	do
 		_key="$1"
-		case "$_key" in
-			-d|--dir)
-				dir="$2"
-				shift
-				;;
-			--dir=*)
-				dir="${_key##--dir=}"
-				;;
-			-i|--inbox)
-				inbox="$2"
-				shift
-				;;
-			--inbox=*)
-				inbox="${_key##--inbox=}"
-				;;
-			--color)
-				color="$2"
-				shift
-				;;
-			--color=*)
-				color="${_key##--color=}"
-				;;
-			--prompt)
-				prompt="$2"
-				shift
-				;;
-			--prompt=*)
-				prompt="${_key##--prompt=}"
-				;;
-			--cursor)
-				cursor="$2"
-				shift
-				;;
-			--cursor=*)
-				cursor="${_key##--cursor=}"
-				;;
-			--item-width)
-				item_width="$2"
-				shift
-				;;
-			--item-width=*)
-				item_width="${_key##--item-width=}"
-				;;
-			--width)
-				width="$2"
-				shift
-				;;
-			--width=*)
-				width="${_key##--width=}"
-				;;
-			-h|--help)
-				print_help
-				exit 0
-				;;
-			*)
-				echo "ERROR: Got an unexpected argument '$1'" && exit 1
-				;;
+		case "${_key}" in
+			-d|--dir) dir="$2" && shift ;;
+			--dir=*) dir="${_key##--dir=}" ;;
+			-i|--inbox) inbox="$2" && shift ;;
+			--inbox=*) inbox="${_key##--inbox=}" ;;
+			--color) color="$2" && shift ;;
+			--color=*) color="${_key##--color=}" ;;
+			--prompt) prompt="$2" && shift ;;
+			--prompt=*) prompt="${_key##--prompt=}" ;;
+			--cursor) cursor="$2" && shift ;;
+			--cursor=*) cursor="${_key##--cursor=}" ;;
+			--item-width) item_width="$2" && shift ;;
+			--item-width=*) item_width="${_key##--item-width=}" ;;
+			--width) width="$2" && shift ;;
+			--width=*) width="${_key##--width=}" ;;
+			-h|--help) print_help ;;
+			*) die "Got an unexpected argument '$1'" ;;
 		esac
 		shift
 	done
 }
 
-parse_commandline "$@"
+get_file_name() {
+  cd "${dir}" || exit
+  # Search recursively for files that have todo items.
+  # Exclude hidden directories.
+  grep -lR --exclude-dir=".*" "^[[:space:]]*- \[.\]" \
+    | gum filter --no-strict \
+    --indicator="${cursor}" \
+    --prompt="${prompt} " \
+    --indicator.foreground="${color}" \
+    --match.foreground="${color}"
+}
 
-[ -z "$dir" ] && echo "ERROR: No directory specified" && exit 1
-[ -z "$inbox" ] && echo "ERROR: No inbox specified" && exit 1
+list_open_todos() {
+  _note="$1"
+  [ -z "${_note}" ] && exit
 
-choice="$(gum choose \
-  --cursor.foreground="${color}" --cursor="${cursor} " \
-  "List inbox" "Add inbox" "List" "Add" "Edit")"
+  if ! grep -q "\- \[ \]" "${_note}" 2> /dev/null; then
+    printf "%s\n" "Yey, nothing left to do" && exit
+  fi
 
-case "${choice}" in
-  "List")
-    cd "${dir}" || exit
-    note="$(grep -lR --exclude-dir=".*" "^[[:space:]]*- \[ \]" \
-      | gum filter \
-      --indicator="${cursor}" \
-      --prompt="${prompt} " \
-      --indicator.foreground="${color}" \
-      --match.foreground="${color}")"
+  selected_items="$(grep "\- \[ ] " "${_note}" \
+    | sed 's/^[[:space:]]*- \[ \]//g' \
+    | gum choose --no-limit \
+    --item.width="${item_width}" \
+    --cursor="${cursor} " \
+    --cursor.foreground="${color}" \
+    --selected.foreground="${color}" \
+    --cursor-prefix "[ ] " \
+    --selected-prefix "[✓] " \
+    --unselected-prefix "[ ] ")"
 
-    [ -z "${note}" ] && exit
-    if ! grep -q "\- \[ \]" "${note}" 2> /dev/null; then
-      echo "Yey, nothing left to do" && exit
-    fi
+  for item in ${selected_items}; do
+    sed -i "s/\[ \] ${item}/\[x\] ${item}/g" "${_note}" 2> /dev/null
+  done
+}
 
-    selected_items="$(grep \
-      "\- \[ ] " "${note}" \
-      | sed -e 's/^[[:space:]]*- \[ \]//' \
-      | gum choose --no-limit --item.width="${item_width}" \
-      --cursor="${cursor} " \
-      --cursor.foreground="${color}" \
-      --selected.foreground="${color}" \
-      --cursor-prefix "[ ] " \
-      --selected-prefix "[✓] " \
-      --unselected-prefix "[ ] ")"
+add_todo() {
+  _note="$1"
+  [ -z "${_note}" ] && exit
 
-    for item in ${selected_items}; do
-      sed -i "s/\[ \] ${item}/\[x\] ${item}/g" "${note}" 2> /dev/null
-    done
-    ;;
-  "List inbox")
-    if ! grep -q "\- \[ \]" "${inbox}" 2> /dev/null; then
-      echo "Yey, nothing left to do" && exit
-    fi
-
-    selected_items="$(grep \
-      "\- \[ ] " "${inbox}" \
-      | sed -e 's/^[[:space:]]*- \[ \]//' \
-      | gum choose --no-limit --item.width="${item_width}" \
-      --cursor="${cursor} " \
-      --cursor.foreground="${color}" \
-      --selected.foreground="${color}" \
-      --cursor-prefix "[ ] " \
-      --selected-prefix "[✓] " \
-      --unselected-prefix "[ ] ")"
-
-    for item in ${selected_items}; do
-      sed -i "s/\[ \] ${item}/\[x\] ${item}/g" "${inbox}" 2> /dev/null
-    done
-    ;;
-  "Add")
-    cd "${dir}" || exit
-    note="$(grep -lR --exclude-dir=".*" "^[[:space:]]*- \[.\]" \
-      | gum filter --no-strict \
-      --indicator="${cursor}" \
-      --prompt="${prompt} " \
-      --indicator.foreground="${color}" \
-      --match.foreground="${color}")"
-
-    [ -z "${note}" ] && exit
-    if [ ! -f "${note}" ]; then
-      gum confirm \
-        --selected.background="${color}" \
-        --selected.foreground="#ffffff" \
-        --prompt.padding="0 2" \
-        "File does not exist, create?"
-      if [ $? -eq 0 ]; then
-        printf "%s\n\n" "# ${note}" > "${note}.md"
-        note="${note}.md"
-      else
-        exit
-      fi
-    fi
-
-    line="$(grep --line-number --extended-regexp \
-      "\- \[.?]" "${note}" | cut -d: -f1 | head -1)"
-    todo="$(gum input --prompt="${prompt} " \
-      --placeholder "Got something to do?" --width "${width}")"
-
-    [ -z "${todo}" ] && exit
-    if [ -z "${line}" ]; then
-      echo "- [ ] ${todo}" >> "${note}"
+  if [ ! -f "${_note}" ]; then
+    gum confirm \
+      --selected.background="${color}" \
+      --selected.foreground="#ffffff" \
+      --prompt.padding="0 2" \
+      "File does not exist, create?"
+    if [ $? -eq 0 ]; then
+      printf "%s\n\n" "# ${_note}" > "${_note}.md"
+      _note="${_note}.md"
     else
-      sed -i "${line}i - [ ] ${todo}" "${note}"
+      exit
     fi
-    ;;
-  "Add inbox")
-    line="$(grep --line-number --extended-regexp \
-      "\- \[.?]" "${inbox}" | cut -d: -f1 | head -1)"
-    todo="$(gum input --prompt="${prompt} " \
-      --placeholder "Got something to do?" --width "${width}")"
-    [ -n "$todo" ] && sed -i "${line}i - [ ] ${todo}" "${inbox}"
-    ;;
-  "Edit")
-    cd "${dir}" || exit
-    note="$(grep -lR --exclude-dir=".*" "^[[:space:]]*- \[.\]" \
-      | gum filter \
-      --indicator="${cursor}" \
-      --prompt="${prompt} " \
-      --indicator.foreground="${color}" \
-      --match.foreground="${color}")"
+  fi
 
-    [ -n "${note}" ] && item="$(grep \
-      "^[[:space:]]*- \[.\] " "${note}" \
-      | sed -e 's/^[[:space:]]*- \[.\] //' \
-      | gum choose --item.width="${item_width}" \
-      --cursor="${cursor} " \
-      --cursor.foreground="${color}" \
-      --selected.foreground="${color}")"
+  _line="$(grep --line-number --extended-regexp \
+    "\- \[.?]" "${_note}" | cut -d: -f1 | head -1)"
+  _todo="$(gum input --prompt="${prompt} " \
+    --placeholder "Got something to do?" --width "${width}")"
 
-    [ -n "${item}" ] && todo="$(gum input \
-      --prompt="${prompt} " --width "${width}" --value "${item}")"
+  [ -z "${_todo}" ] && exit
+  if [ -z "${_line}" ]; then
+    printf "%s\n" "- [ ] ${_todo}" >> "${_note}"
+  else
+    sed -i "${_line}i - [ ] ${_todo}" "${_note}"
+  fi
+}
 
-    [ -n "${todo}" ] && sed -i \
-      "s|^\([[:space:]]*- \[.\]\) ${item}$|\\1 ${todo}|" "${note}"
-    ;;
-esac
+edit_todo() {
+  cd "${dir}" || exit
+  _note="$1"
+
+  [ -n "${_note}" ] && _item="$(grep "^[[:space:]]*- \[.\] " "${_note}" \
+    | sed -e 's/^[[:space:]]*- \[.\] //' \
+    | gum filter \
+    --prompt="${prompt} " \
+    --indicator="${cursor}" \
+    --indicator.foreground="${color}" \
+    --match.foreground="${color}" \
+    --width="$width")"
+
+  [ -n "${_item}" ] && _todo="$(gum input \
+    --prompt="${prompt} " \
+    --width "${width}" \
+    --value "${_item}")"
+
+  [ -n "${_todo}" ] && sed -i \
+    "s|^\([[:space:]]*- \[.\]\) ${_item}$|\\1 ${_todo}|" "${_note}"
+}
+
+die() {
+  printf 'Error: %s.\n' "$1" >&2
+  exit 1
+}
+
+main() {
+  parse_commandline "$@"
+  [ -d "$dir" ] || die "No directory specified"
+  [ -f "$inbox" ] || die "No inbox specified"
+
+  _choice="$(gum choose \
+    --cursor.foreground="${color}" \
+    --cursor="${cursor} " \
+    "List inbox" "Add inbox" "List" "Add" "Edit")"
+
+  case "${_choice}" in
+    "List")
+      list_open_todos "${dir}/$(get_file_name)"
+      ;;
+    "List inbox")
+      list_open_todos "${inbox}"
+      ;;
+    "Add")
+      add_todo "${dir}/$(get_file_name)"
+      ;;
+    "Add inbox")
+      add_todo "${inbox}"
+      ;;
+    "Edit")
+      edit_todo "${dir}/$(get_file_name)"
+      ;;
+  esac
+}
+
+main "$@"
