@@ -61,10 +61,10 @@ parse_commandline()
 }
 
 get_file_name() {
-  cd "${dir}" || exit
   # Search recursively for files that have todo items.
   # Exclude hidden directories.
-  grep -lR --exclude-dir=".*" "^[[:space:]]*- \[.\]" \
+  cd "${dir}" && grep -lR --exclude-dir=".*" \
+    "^[[:space:]]*- \[.\]" \
     | gum filter --no-strict \
     --indicator="${cursor}" \
     --prompt="${prompt} " \
@@ -74,7 +74,7 @@ get_file_name() {
 
 list_open_todos() {
   _note="$1"
-  [ -z "${_note}" ] && exit
+  [ -z "${_note}" ] && exit || _note="${dir}/${_note}"
 
   if ! grep -q "\- \[ \]" "${_note}" 2> /dev/null; then
     printf "%s\n" "Yey, nothing left to do" && exit
@@ -98,7 +98,7 @@ list_open_todos() {
 
 add_todo() {
   _note="$1"
-  [ -z "${_note}" ] && exit
+  [ -z "${_note}" ] && exit || _note="${dir}/${_note}"
 
   if [ ! -f "${_note}" ]; then
     gum confirm \
@@ -128,10 +128,10 @@ add_todo() {
 }
 
 edit_todo() {
-  cd "${dir}" || exit
   _note="$1"
+  [ -z "${_note}" ] && exit || _note="${dir}/${_note}"
 
-  [ -n "${_note}" ] && _item="$(grep "^[[:space:]]*- \[.\] " "${_note}" \
+  cd "${dir}" && _item="$(grep "^[[:space:]]*- \[.\] " "${_note}" \
     | sed -e 's/^[[:space:]]*- \[.\] //' \
     | gum filter \
     --prompt="${prompt} " \
@@ -166,19 +166,19 @@ main() {
 
   case "${_choice}" in
     "List")
-      list_open_todos "${dir}/$(get_file_name)"
+      list_open_todos "$(get_file_name)"
       ;;
     "List inbox")
-      list_open_todos "${inbox}"
+      list_open_todos "${inbox##*/}"
       ;;
     "Add")
-      add_todo "${dir}/$(get_file_name)"
+      add_todo "$(get_file_name)"
       ;;
     "Add inbox")
-      add_todo "${inbox}"
+      add_todo "${inbox##*/}"
       ;;
     "Edit")
-      edit_todo "${dir}/$(get_file_name)"
+      edit_todo "$(get_file_name)"
       ;;
   esac
 }
