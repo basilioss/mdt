@@ -91,8 +91,11 @@ list_open_todos() {
     --selected-prefix "[✓] " \
     --unselected-prefix "[ ] ")"
 
-  for item in ${selected_items}; do
-    sed -i "s/\[ \] ${item}/\[x\] ${item}/g" "${_note}" 2> /dev/null
+  [ -z "${selected_items}" ] && exit
+
+  printf "%s\n" "${selected_items}" | while read -r item; do
+    escaped_item=$(printf '%s\n' "${item}" | sed 's/[*[\/&]/\\&/g')
+    sed -i "s/\[ \] ${escaped_item}/\[x\] ${escaped_item}/g" "${_note}"
   done
 }
 
