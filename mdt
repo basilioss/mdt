@@ -73,14 +73,14 @@ get_file_name() {
 }
 
 list_open_todos() {
-  _note="$1"
-  [ -z "${_note}" ] && exit || _note="${dir}/${_note}"
+  _file="$1"
+  [ -z "${_file}" ] && exit || _file="${dir}/${_file}"
 
-  if ! grep -q "\- \[ \]" "${_note}" 2> /dev/null; then
+  if ! grep -q "\- \[ \]" "${_file}" 2> /dev/null; then
     printf "%s\n" "Yey, nothing left to do" && exit
   fi
 
-  selected_items="$(grep "\- \[ ] " "${_note}" \
+  _selected_items="$(grep "\- \[ ] " "${_file}" \
     | sed 's/^[[:space:]]*- \[ \]//g' \
     | gum choose --no-limit \
     --item.width="${item_width}" \
@@ -91,50 +91,50 @@ list_open_todos() {
     --selected-prefix "[✓] " \
     --unselected-prefix "[ ] ")"
 
-  [ -z "${selected_items}" ] && exit
+  [ -z "${_selected_items}" ] && exit
 
-  printf "%s\n" "${selected_items}" | while read -r item; do
+  printf "%s\n" "${_selected_items}" | while read -r item; do
     escaped_item=$(printf '%s\n' "${item}" | sed 's/[*[\/&]/\\&/g')
-    sed -i "s/\[ \] ${escaped_item}/\[x\] ${escaped_item}/g" "${_note}"
+    sed -i "s/\[ \] ${escaped_item}/\[x\] ${escaped_item}/g" "${_file}"
   done
 }
 
 add_todo() {
-  _note="$1"
-  [ -z "${_note}" ] && exit || _note="${dir}/${_note}"
+  _file="$1"
+  [ -z "${_file}" ] && exit || _file="${dir}/${_file}"
 
-  if [ ! -f "${_note}" ]; then
+  if [ ! -f "${_file}" ]; then
     gum confirm \
       --selected.background="${color}" \
       --selected.foreground="#ffffff" \
       --prompt.padding="0 2" \
       "File does not exist, create?"
     if [ $? -eq 0 ]; then
-      printf "%s\n\n" "# ${_note}" > "${_note}.md"
-      _note="${_note}.md"
+      printf "%s\n\n" "# ${_file}" > "${_file}.md"
+      _file="${_file}.md"
     else
       exit
     fi
   fi
 
   _line="$(grep --line-number --extended-regexp \
-    "\- \[.?]" "${_note}" | cut -d: -f1 | head -1)"
+    "\- \[.?]" "${_file}" | cut -d: -f1 | head -1)"
   _todo="$(gum input --prompt="${prompt} " \
     --placeholder "Got something to do?" --width "${width}")"
 
   [ -z "${_todo}" ] && exit
   if [ -z "${_line}" ]; then
-    printf "%s\n" "- [ ] ${_todo}" >> "${_note}"
+    printf "%s\n" "- [ ] ${_todo}" >> "${_file}"
   else
-    sed -i "${_line}i - [ ] ${_todo}" "${_note}"
+    sed -i "${_line}i - [ ] ${_todo}" "${_file}"
   fi
 }
 
 edit_todo() {
-  _note="$1"
-  [ -z "${_note}" ] && exit || _note="${dir}/${_note}"
+  _file="$1"
+  [ -z "${_file}" ] && exit || _file="${dir}/${_file}"
 
-  cd "${dir}" && _item="$(grep "^[[:space:]]*- \[.\] " "${_note}" \
+  cd "${dir}" && _item="$(grep "^[[:space:]]*- \[.\] " "${_file}" \
     | sed -e 's/^[[:space:]]*- \[.\] //' \
     | gum filter \
     --prompt="${prompt} " \
