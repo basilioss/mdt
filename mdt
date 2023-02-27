@@ -146,10 +146,13 @@ edit_todo() {
   [ -n "${_item}" ] && _todo="$(gum input \
     --prompt="${prompt} " \
     --width "${width}" \
-    --value "${_item}")"
+    --value "${_item}" \
+    | sed 's/[*[\/&]/\\&/g')"
 
-  [ -n "${_todo}" ] && sed -i \
-    "s|^\([[:space:]]*- \[.\]\) ${_item}$|\\1 ${_todo}|" "${_note}"
+  if [ -n "${_todo}" ]; then
+    _escaped_item=$(printf '%s\n' "${_item}" | sed 's/[*[\/&]/\\&/g')
+    sed -i "s|^\([[:space:]]*- \[.\]\) ${_escaped_item}$|\\1 ${_todo}|" "${_file}"
+  fi
 }
 
 die() {
