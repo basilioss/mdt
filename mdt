@@ -10,6 +10,7 @@ prompt="${MDT_PROMPT-◆}"
 cursor="${MDT_CURSOR:-➔}"
 item_width="${MDT_ITEM_WIDTH:-75}"
 width="${MDT_WIDTH:-65}"
+_editor="${EDITOR}"
 
 ################################################
 
@@ -23,7 +24,7 @@ ${_me} - simple todo app on top of plain markdown files
 Usage
   ${_me} [-d|--dir <arg>] [-i|--inbox <arg>] [--color <arg>]
   [--prompt <arg>] [--cursor <arg>] [--item-width <arg>]
-  [--width <arg>] [-h|--help]
+  [--width <arg>] [--editor <arg>] [-h|--help]
 
 Options
   -d, --dir           Path to the todos directory
@@ -53,6 +54,8 @@ parse_commandline()
 			--item-width=*) item_width="${_key##--item-width=}" ;;
 			--width) width="$2" && shift ;;
 			--width=*) width="${_key##--width=}" ;;
+			--editor) _editor="$2" && shift ;;
+			--editor=*) _editor="${_key##--editor=}" ;;
 			-h|--help) print_help ;;
 			*) die "Got an unexpected argument '$1'" ;;
 		esac
@@ -60,16 +63,37 @@ parse_commandline()
 	done
 }
 
-get_file_name() {
-  # Search recursively for files that have todo items.
-  # Exclude hidden directories.
-  cd "${dir}" && grep -lR --exclude-dir=".*" \
-    "^[[:space:]]*- \[.\]" \
+# Search recursively for files that have specified checkboxes.
+# By default, search for files that have any type of checkboxes.
+# For example: [x] [ ] [-] [/] [>] [<] ...
+# Exclude hidden directories.
+# Returns filename without the full path.
+get_file_with_checkboxes() {
+  cd "${dir}" && _file="$(grep -lR --exclude-dir=".*" \
+    "^[[:space:]]*- \[${1:-.}\]" \
     | gum filter --no-strict \
     --indicator="${cursor}" \
     --prompt="${prompt} " \
     --indicator.foreground="${color}" \
-    --match.foreground="${color}"
+    --match.foreground="${color}")"
+
+  # Prompt to create a new file if it doesn't exist and if
+  # checkbox type isn't specified.
+  if [ -n "${_file}" ] && [ ! -f "${_file}" ] && [ -z "$1" ]; then
+    gum confirm \
+      --selected.background="${color}" \
+      --selected.foreground="#ffffff" \
+      --prompt.padding="0 2" \
+      "File does not exist, create?"
+    if [ $? -eq 0 ]; then
+      printf "%s\n\n" "# ${_file}" > "${_file}.md"
+      _file="${_file}.md"
+    else
+      exit
+    fi
+  fi
+
+  [ -f "${_file}" ] && printf "%s\n" "${_file}"
 }
 
 list_open_todos() {
@@ -103,20 +127,6 @@ add_todo() {
   _file="$1"
   [ -z "${_file}" ] && exit || _file="${dir}/${_file}"
 
-  if [ ! -f "${_file}" ]; then
-    gum confirm \
-      --selected.background="${color}" \
-      --selected.foreground="#ffffff" \
-      --prompt.padding="0 2" \
-      "File does not exist, create?"
-    if [ $? -eq 0 ]; then
-      printf "%s\n\n" "# ${_file}" > "${_file}.md"
-      _file="${_file}.md"
-    else
-      exit
-    fi
-  fi
-
   _line="$(grep --line-number --extended-regexp \
     "\- \[.?]" "${_file}" | cut -d: -f1 | head -1)"
   _todo="$(gum input --prompt="${prompt} " \
@@ -133,26 +143,8 @@ add_todo() {
 edit_todo() {
   _file="$1"
   [ -z "${_file}" ] && exit || _file="${dir}/${_file}"
-
-  cd "${dir}" && _item="$(grep "^[[:space:]]*- \[.\] " "${_file}" \
-    | sed -e 's/^[[:space:]]*- \[.\] //' \
-    | gum filter \
-    --prompt="${prompt} " \
-    --indicator="${cursor}" \
-    --indicator.foreground="${color}" \
-    --match.foreground="${color}" \
-    --width="$width")"
-
-  [ -n "${_item}" ] && _todo="$(gum input \
-    --prompt="${prompt} " \
-    --width "${width}" \
-    --value "${_item}" \
-    | sed 's/[*[\/&]/\\&/g')"
-
-  if [ -n "${_todo}" ]; then
-    _escaped_item=$(printf '%s\n' "${_item}" | sed 's/[*[\/&]/\\&/g')
-    sed -i "s|^\([[:space:]]*- \[.\]\) ${_escaped_item}$|\\1 ${_todo}|" "${_file}"
-  fi
+  [ -z "${_editor}" ] && die "No editor specified"
+  "${_editor}" "${_file}"
 }
 
 die() {
@@ -172,19 +164,19 @@ main() {
 
   case "${_choice}" in
     "List")
-      list_open_todos "$(get_file_name)"
+      list_open_todos "$(get_file_with_checkboxes ' ')"
       ;;
     "List inbox")
       list_open_todos "${inbox##*/}"
       ;;
     "Add")
-      add_todo "$(get_file_name)"
+      add_todo "$(get_file_with_checkboxes)"
       ;;
     "Add inbox")
       add_todo "${inbox##*/}"
       ;;
     "Edit")
-      edit_todo "$(get_file_name)"
+      edit_todo "$(get_file_with_checkboxes)"
       ;;
   esac
 }
