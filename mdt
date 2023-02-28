@@ -66,12 +66,12 @@ parse_commandline()
 # Search recursively for files that have specified checkboxes.
 # By default, search for files that have any type of checkboxes.
 # For example: [x] [ ] [-] [/] [>] [<] ...
-# Exclude hidden directories.
+# Exclude hidden directories and sort by modification time.
 # Returns filename without the full path.
 get_file_with_checkboxes() {
-  cd "${dir}" && _file="$(grep -lR --exclude-dir=".*" \
+  cd "${dir}" && _file="$(grep -lZR --exclude-dir=".*" \
     "^[[:space:]]*- \[${1:-.}\]" \
-    | gum filter --no-strict \
+    | xargs -0 ls -t | gum filter --no-strict \
     --indicator="${cursor}" \
     --prompt="${prompt} " \
     --indicator.foreground="${color}" \
