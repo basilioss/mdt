@@ -67,7 +67,7 @@ parse_commandline()
 # By default, search for files that have any type of checkboxes.
 # For example: [x] [ ] [-] [/] [>] [<] ...
 # Exclude hidden directories and sort by modification time.
-# Returns filename without the full path.
+# Returns path to the file.
 get_file_with_checkboxes() {
   cd "${dir}" && _file="$(grep -lZR --exclude-dir=".*" \
     "^[[:space:]]*- \[${1:-.}\]" \
@@ -93,12 +93,11 @@ get_file_with_checkboxes() {
     fi
   fi
 
-  [ -f "${_file}" ] && printf "%s\n" "${_file}"
+  [ -f "${_file}" ] && printf "%s\n" "${dir}/${_file}"
 }
 
 list_open_todos() {
-  _file="$1"
-  [ -z "${_file}" ] && exit || _file="${dir}/${_file}"
+  [ -f "$1" ] && _file="$1" || exit
 
   if ! grep -q "\- \[ \]" "${_file}" 2> /dev/null; then
     printf "%s\n" "Yey, nothing left to do" && exit
@@ -124,8 +123,7 @@ list_open_todos() {
 }
 
 add_todo() {
-  _file="$1"
-  [ -z "${_file}" ] && exit || _file="${dir}/${_file}"
+  [ -f "$1" ] && _file="$1" || exit
 
   _line="$(grep --line-number --extended-regexp \
     "\- \[.?]" "${_file}" | cut -d: -f1 | head -1)"
@@ -141,8 +139,7 @@ add_todo() {
 }
 
 edit_todo() {
-  _file="$1"
-  [ -z "${_file}" ] && exit || _file="${dir}/${_file}"
+  [ -f "$1" ] && _file="$1" || exit
   [ -z "${_editor}" ] && die "No editor specified"
   "${_editor}" "${_file}"
 }
@@ -167,13 +164,13 @@ main() {
       list_open_todos "$(get_file_with_checkboxes ' ')"
       ;;
     "List inbox")
-      list_open_todos "${inbox##*/}"
+      list_open_todos "${inbox}"
       ;;
     "Add")
       add_todo "$(get_file_with_checkboxes)"
       ;;
     "Add inbox")
-      add_todo "${inbox##*/}"
+      add_todo "${inbox}"
       ;;
     "Edit")
       edit_todo "$(get_file_with_checkboxes)"
