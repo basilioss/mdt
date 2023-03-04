@@ -151,8 +151,7 @@ die() {
 
 main() {
   parse_commandline "$@"
-  [ -d "$dir" ] || die "No directory specified"
-  [ -f "$inbox" ] || die "No inbox specified"
+  [ -d "${dir}" ] || die "No directory specified"
 
   _choice="$(gum choose \
     --cursor.foreground="${color}" \
@@ -164,12 +163,14 @@ main() {
       list_open_todos "$(get_file_with_checkboxes ' ')"
       ;;
     "List inbox")
+      [ -f "${inbox}" ] || die "No inbox specified"
       list_open_todos "${inbox}"
       ;;
     "Add")
       add_todo "$(get_file_with_checkboxes)"
       ;;
     "Add inbox")
+      [ -f "${inbox}" ] || die "No inbox specified"
       add_todo "${inbox}"
       ;;
     "Edit")
