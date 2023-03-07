@@ -104,7 +104,8 @@ list_open_todos() {
   fi
 
   _selected_items="$(grep "\- \[ ] " "${_file}" \
-    | sed 's/^[[:space:]]*- \[ \]//g' \
+    | sed 's/^ \{0,1\}- \[ \] //g' \
+    | sed 's/^[[:space:]]*- \[ \] /└─ /g' \
     | gum choose --no-limit \
     --item.width="${item_width}" \
     --cursor="${cursor} " \
@@ -117,7 +118,9 @@ list_open_todos() {
   [ -z "${_selected_items}" ] && exit
 
   printf "%s\n" "${_selected_items}" | while read -r item; do
-    escaped_item=$(printf '%s\n' "${item}" | sed 's/[*[\/&]/\\&/g')
+    escaped_item=$(printf '%s\n' "${item}" \
+      | sed 's/└─ //g' \
+      | sed 's/[*[\/&]/\\&/g')
     sed -i "s/\[ \] ${escaped_item}/\[x\] ${escaped_item}/g" "${_file}"
   done
 }
