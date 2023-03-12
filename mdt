@@ -10,7 +10,7 @@ prompt="${MDT_PROMPT-◆}"
 cursor="${MDT_CURSOR:-➔}"
 item_width="${MDT_ITEM_WIDTH:-75}"
 width="${MDT_WIDTH:-65}"
-_editor="${EDITOR}"
+file_editor="${MDT_EDITOR:-${EDITOR}}"
 
 ################################################
 
@@ -54,8 +54,8 @@ parse_commandline()
 			--item-width=*) item_width="${_key##--item-width=}" ;;
 			--width) width="$2" && shift ;;
 			--width=*) width="${_key##--width=}" ;;
-			--editor) _editor="$2" && shift ;;
-			--editor=*) _editor="${_key##--editor=}" ;;
+			--editor) file_editor="$2" && shift ;;
+			--editor=*) file_editor="${_key##--editor=}" ;;
 			-h|--help) print_help ;;
 			*) die "Got an unexpected argument '$1'" ;;
 		esac
@@ -143,8 +143,8 @@ add_todo() {
 
 edit_todo() {
   [ -f "$1" ] && _file="$1" || exit
-  [ -z "${_editor}" ] && die "No editor specified"
-  "${_editor}" "${_file}"
+  [ -z "${file_editor}" ] && die "No editor specified"
+  eval "${file_editor}" "\"${_file}\""
 }
 
 die() {
