@@ -82,7 +82,7 @@ get_file_with_checkboxes() {
   if [ -n "${_file}" ] && [ ! -f "${_file}" ] && [ -z "$1" ]; then
     gum confirm \
       --selected.background="${color}" \
-      --selected.foreground="#ffffff" \
+      --selected.foreground="#262626" \
       --prompt.padding="0 2" \
       "File does not exist, create?"
     if [ $? -eq 0 ]; then
@@ -100,7 +100,7 @@ list_open_todos() {
   [ -f "$1" ] && _file="$1" || exit
 
   if ! grep -q "\- \[ \]" "${_file}" 2> /dev/null; then
-    printf "%s\n" "Yey, nothing left to do" && exit
+    printf "%b\n" "Yey,\033[38;5;${color}m nothing\033[m left to do!" && exit
   fi
 
   _selected_items="$(grep "\- \[ ] " "${_file}" \
@@ -131,6 +131,7 @@ add_todo() {
   _line="$(grep --line-number --extended-regexp \
     "\- \[.?]" "${_file}" | cut -d: -f1 | head -1)"
   _todo="$(gum input --prompt="${prompt} " \
+    --prompt.foreground="${color}" \
     --placeholder "Got something to do?" --width "${width}")"
 
   [ -z "${_todo}" ] && exit
