@@ -6,10 +6,10 @@
 dir="${MDT_DIR}"
 inbox="${MDT_INBOX}"
 color="${MDT_MAIN_COLOR:-5}"
-prompt="${MDT_PROMPT-◆}"
+prompt="${MDT_PROMPT:-◆}"
 cursor="${MDT_CURSOR:-➔}"
 item_width="${MDT_ITEM_WIDTH:-75}"
-width="${MDT_WIDTH:-65}"
+input_width="${MDT_INPUT_WIDTH:-65}"
 file_editor="${MDT_EDITOR:-${EDITOR}}"
 
 ################################################
@@ -19,12 +19,12 @@ _me="${0##*/}"
 print_help()
 {
   printf %s "\
-${_me} - simple todo app on top of plain markdown files
+${_me} - command-line markdown todo list manager
 
 Usage
   ${_me} [-d|--dir <arg>] [-i|--inbox <arg>] [--color <arg>]
   [--prompt <arg>] [--cursor <arg>] [--item-width <arg>]
-  [--width <arg>] [--editor <arg>] [-h|--help]
+  [--input-width <arg>] [--editor <arg>] [-h|--help]
 
 Options
   -d, --dir           Path to the todos directory
@@ -52,8 +52,8 @@ parse_commandline()
 			--cursor=*) cursor="${_key##--cursor=}" ;;
 			--item-width) item_width="$2" && shift ;;
 			--item-width=*) item_width="${_key##--item-width=}" ;;
-			--width) width="$2" && shift ;;
-			--width=*) width="${_key##--width=}" ;;
+			--input-width) input_width="$2" && shift ;;
+			--input-width=*) input_width="${_key##--input-width=}" ;;
 			--editor) file_editor="$2" && shift ;;
 			--editor=*) file_editor="${_key##--editor=}" ;;
 			-h|--help) print_help ;;
@@ -132,7 +132,8 @@ add_todo() {
     "\- \[.?]" "${_file}" | cut -d: -f1 | head -1)"
   _todo="$(gum input --prompt="${prompt} " \
     --prompt.foreground="${color}" \
-    --placeholder "Got something to do?" --width "${width}")"
+    --width="${input_width}" \
+    --placeholder "Got something to do?")"
 
   [ -z "${_todo}" ] && exit
   if [ -z "${_line}" ]; then

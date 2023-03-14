@@ -30,7 +30,7 @@ sudo make install
 ```sh
 # Download
 curl -L https://raw.githubusercontent.com/basilioss/mdt/main/mdt > mdt
-# Make it executeable
+# Make it executable
 chmod +x mdt
 # Move it somewhere in your $PATH
 mv mdt ~/.local/bin
@@ -38,15 +38,15 @@ mv mdt ~/.local/bin
 
 ## :gear: Configuration
 
-| Option       | Environment Variable  | Description                                       |
-| ------------ | --------------------- | ------------------------------------------------- |
-| -d, --dir    | MDT_DIR               | Path to the tasks directory.                      |
-| -i, --inbox  | MDT_INBOX             | Path to the inbox file.                           |
-| --prompt     | MDT_PROMPT            | Input prompt character. Default is '◆'.           |
-| --cursor     | MDT_CURSOR            | Selection character. Default is '➔'.              |
-| --item-width | MDT_ITEM_WIDTH        | Todo items width. 0 for no wrap, default is 75.   |
-| --width      | MDT_WIDTH             | Input prompt width. 0 for no wrap, default is 65. |
-| --editor     | MDT_EDITOR, EDITOR    | Markdown file editor.                             |
+| Option        | Environment Variable  | Description                                       |
+| ------------  | --------------------- | ------------------------------------------------- |
+| -d, --dir     | MDT_DIR               | Path to the tasks directory.                      |
+| -i, --inbox   | MDT_INBOX             | Path to the inbox file.                           |
+| --prompt      | MDT_PROMPT            | Input prompt character. Default is '◆'.           |
+| --cursor      | MDT_CURSOR            | Selection character. Default is '➔'.              |
+| --item-width  | MDT_ITEM_WIDTH        | Todo items width. 0 for no wrap, default is 75.   |
+| --input-width | MDT_INPUT_WIDTH       | Input prompt width. 0 for no wrap, default is 65. |
+| --editor      | MDT_EDITOR, EDITOR    | Markdown file editor.                             |
 
 ## :keyboard: Keybindings
 
