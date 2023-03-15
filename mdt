@@ -155,6 +155,7 @@ die() {
 }
 
 main() {
+  which gum >/dev/null 2>&1 || die "gum is required but not installed, exiting"
   parse_commandline "$@"
   [ -d "${dir}" ] || die "No directory specified"
 
