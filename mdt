@@ -15,6 +15,7 @@ file_editor="${MDT_EDITOR:-${EDITOR}}"
 ################################################
 
 _me="${0##*/}"
+_mdt_version="1.0.0"
 
 print_help()
 {
@@ -24,7 +25,7 @@ ${_me} - command-line markdown todo list manager
 Usage
   ${_me} [-d|--dir <arg>] [-i|--inbox <arg>] [--color <arg>]
   [--prompt <arg>] [--cursor <arg>] [--item-width <arg>]
-  [--input-width <arg>] [--editor <arg>] [-h|--help]
+  [--input-width <arg>] [--editor <arg>] [--version] [-h|--help]
 
 Options
   -d, --dir           Path to the todos directory
@@ -36,31 +37,32 @@ exit 0
 
 parse_commandline()
 {
-	while test $# -gt 0
-	do
-		_key="$1"
-		case "${_key}" in
-			-d|--dir) dir="$2" && shift ;;
-			--dir=*) dir="${_key##--dir=}" ;;
-			-i|--inbox) inbox="$2" && shift ;;
-			--inbox=*) inbox="${_key##--inbox=}" ;;
-			--color) color="$2" && shift ;;
-			--color=*) color="${_key##--color=}" ;;
-			--prompt) prompt="$2" && shift ;;
-			--prompt=*) prompt="${_key##--prompt=}" ;;
-			--cursor) cursor="$2" && shift ;;
-			--cursor=*) cursor="${_key##--cursor=}" ;;
-			--item-width) item_width="$2" && shift ;;
-			--item-width=*) item_width="${_key##--item-width=}" ;;
-			--input-width) input_width="$2" && shift ;;
-			--input-width=*) input_width="${_key##--input-width=}" ;;
-			--editor) file_editor="$2" && shift ;;
-			--editor=*) file_editor="${_key##--editor=}" ;;
-			-h|--help) print_help ;;
-			*) die "Got an unexpected argument '$1'" ;;
-		esac
-		shift
-	done
+  while test $# -gt 0
+  do
+    _key="$1"
+    case "${_key}" in
+      -d|--dir) dir="$2" && shift ;;
+      --dir=*) dir="${_key##--dir=}" ;;
+      -i|--inbox) inbox="$2" && shift ;;
+      --inbox=*) inbox="${_key##--inbox=}" ;;
+      --color) color="$2" && shift ;;
+      --color=*) color="${_key##--color=}" ;;
+      --prompt) prompt="$2" && shift ;;
+      --prompt=*) prompt="${_key##--prompt=}" ;;
+      --cursor) cursor="$2" && shift ;;
+      --cursor=*) cursor="${_key##--cursor=}" ;;
+      --item-width) item_width="$2" && shift ;;
+      --item-width=*) item_width="${_key##--item-width=}" ;;
+      --input-width) input_width="$2" && shift ;;
+      --input-width=*) input_width="${_key##--input-width=}" ;;
+      --editor) file_editor="$2" && shift ;;
+      --editor=*) file_editor="${_key##--editor=}" ;;
+      --version) printf "%s\n" "${_me} ${_mdt_version}" && exit ;;
+      -h|--help) print_help ;;
+      *) die "Got an unexpected argument '$1'" ;;
+    esac
+    shift
+  done
 }
 
 # Search recursively for files that have specified checkboxes.
