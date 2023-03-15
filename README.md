@@ -2,6 +2,11 @@
   <h1>mdt</h1>
   <p>A simple command-line markdown todo list manager inspired by <a href="https://github.com/sjl/t">t</a></p>
   <img src="mdt.gif" alt="Demo" width="800">
+  <p>
+    <sub>
+      Demo GIF using <a href=https://starship.rs/>starship</a> prompt, <a href=https://github.com/kyoz/purify>purify</a> theme, <a href=https://www.jetbrains.com/lp/mono/>JetBrains Mono</a> font, along with <a href=https://nvchad.com>NvChad</a> and <a href=https://github.com/siduck/st>st</a>
+    </sub>
+  </p>
 </div>
   
 ## :sparkles: Features
