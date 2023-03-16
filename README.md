@@ -47,6 +47,7 @@ mv mdt ~/.local/bin
 | ------------  | --------------------- | ------------------------------------------------- |
 | -d, --dir     | MDT_DIR               | Path to the tasks directory.                      |
 | -i, --inbox   | MDT_INBOX             | Path to the inbox file.                           |
+| --color       | MDT_MAIN_COLOR        | Main color.                                       |
 | --prompt      | MDT_PROMPT            | Input prompt character. Default is '◆'.           |
 | --cursor      | MDT_CURSOR            | Selection character. Default is '➔'.              |
 | --item-width  | MDT_ITEM_WIDTH        | Todo items width. 0 for no wrap, default is 75.   |
