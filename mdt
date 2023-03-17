@@ -15,7 +15,7 @@ file_editor="${MDT_EDITOR:-${EDITOR}}"
 ################################################
 
 _me="${0##*/}"
-_mdt_version="1.0.0"
+_mdt_version="1.0.1"
 
 print_help()
 {
@@ -157,7 +157,7 @@ die() {
 }
 
 main() {
-  which gum >/dev/null 2>&1 || die "gum is required but not installed, exiting"
+  command -v gum > /dev/null || die "gum is required but not installed, exiting"
   parse_commandline "$@"
   [ -d "${dir}" ] || die "No directory specified"
 
