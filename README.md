@@ -15,7 +15,7 @@
 - Flexible, future-proof markdown file format that you can use to add additional context and notes to your tasks.
 - Nice, interactive command-line interface to quickly capture and check tasks.
 
-## :receipt: Dependencies
+## :package: Dependencies
 
 - POSIX-compliant shell (sh, dash, bash etc.)
 - [gum](https://github.com/charmbracelet/gum#installation)
@@ -40,6 +40,29 @@ chmod +x mdt
 # Move it somewhere in your $PATH
 mv mdt ~/.local/bin
 ```
+
+## :memo: Getting started
+
+1. Create a todo lists directory:
+
+```sh
+mkdir ~/tasks
+```
+
+2. Create an inbox:
+
+```sh
+touch ~/tasks/inbox.md
+```
+
+3. Create an alias to run `mdt`. Put something like this in your `~/.bashrc` file:
+
+```sh
+alias mdt='mdt --dir ~/tasks --inbox ~/tasks/inbox.md'
+```
+
+4. Reload your `.bashrc` by running `source ~/.bashrc` or just restart the terminal window.
+5. In case you want to edit markdown files manually, check out this site: https://www.markdownguide.org/cheat-sheet
 
 ## :gear: Configuration
 
