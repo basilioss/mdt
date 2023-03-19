@@ -3,7 +3,7 @@
 
 # Configuration ################################
 
-dir="${MDT_DIR}"
+dir="${MDT_DIR:-$PWD}"
 inbox="${MDT_INBOX}"
 color="${MDT_MAIN_COLOR:-5}"
 prompt="${MDT_PROMPT:-◆}"
@@ -83,16 +83,25 @@ create_file_if_missing() {
 }
 
 get_file_with_checkboxes() {
-  cd "${dir}" || exit
-
   # If checkbox type isn't specified, use any
   # For example: [x] [ ] [-] [/] [>] [<] ...
   _checkbox_type="${1:-.}"
+  _checkbox_pattern="^[[:space:]]*- \[${_checkbox_type}\]"
 
-  # Search recursively. Exclude hidden directories. Sort by modification time
-  _files="$(grep -lZR --exclude-dir=".*" \
-    "^[[:space:]]*- \[${_checkbox_type}\]" \
-    | xargs -0 ls -t)"
+  # Find files with checkboxes.
+  # Do not search recursively if the todos directory 
+  # is the current working directory (e.g. $HOME)
+  if [ "${dir}" = "${PWD}" ]; then
+    if grep -qs "${_checkbox_pattern}" -- *.md; then
+      _files="$(grep -lZ "${_checkbox_pattern}" -- *.md | xargs -0 ls -t)"
+    fi
+  else
+    cd "${dir}" || exit
+    _is_exist=$(find . -type f -name "*.md" -not -path '*/.*' \
+      -exec grep -q "${_checkbox_pattern}" {} + -print | head -n 1)
+    [ -n "${_is_exist}" ] && _files="$(grep -lZR --exclude-dir=".*" \
+      "${_checkbox_pattern}" -- *.md | xargs -0 ls -t)"
+  fi
 
   # Choose a file from the list
   if [ -n "${_files}" ]; then
@@ -191,7 +200,6 @@ set_inbox() {
 main() {
   command -v gum > /dev/null || die "gum is required but not installed, exiting"
   parse_commandline "$@"
-  [ -d "${dir}" ] || die "No directory specified"
 
   _choice="$(gum choose \
     --cursor.foreground="${color}" \
