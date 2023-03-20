@@ -17,14 +17,14 @@
 
 ## :package: Dependencies
 
-- POSIX-compliant shell (sh, dash, bash etc.)
+- POSIX-compliant shell (dash, bash, zsh etc.)
 - [gum](https://github.com/charmbracelet/gum#installation)
 
 ## :rocket: Installation
 
 ### Install as a package
 
-`mdt` is available in the [Arch User Repository](https://aur.archlinux.org/packages/mdt). If you use Arch or an Arch-based distro, you can use `makepkg` or your AUR helper of choice to install the `mdt` package.
+mdt is available in the [Arch User Repository](https://aur.archlinux.org/packages/mdt). If you use Arch or an Arch-based distro, you can use `makepkg` or your AUR helper of choice to install the `mdt` package.
 
 ### Install using `make`
 
@@ -45,41 +45,34 @@ chmod +x mdt
 mv mdt ~/.local/bin
 ```
 
-## :memo: Getting started
-
-1. Create a todo lists directory:
-
-```sh
-mkdir ~/tasks
-```
-
-2. Create an inbox:
-
-```sh
-touch ~/tasks/inbox.md
-```
-
-3. Create an alias to run `mdt`. Put something like this in your `~/.bashrc` file:
-
-```sh
-alias mdt='mdt --dir ~/tasks --inbox ~/tasks/inbox.md'
-```
-
-4. Reload your `.bashrc` by running `source ~/.bashrc` or just restart the terminal window.
-5. In case you want to edit markdown files manually, check out this site: https://www.markdownguide.org/cheat-sheet
-
 ## :gear: Configuration
 
-| Option        | Environment Variable  | Description                                       |
-| ------------  | --------------------- | ------------------------------------------------- |
-| -d, --dir     | MDT_DIR               | Path to the tasks directory.                      |
-| -i, --inbox   | MDT_INBOX             | Path to the inbox file.                           |
-| --color       | MDT_MAIN_COLOR        | Main color.                                       |
-| --prompt      | MDT_PROMPT            | Input prompt character. Default is '◆'.           |
-| --cursor      | MDT_CURSOR            | Selection character. Default is '➔'.              |
-| --item-width  | MDT_ITEM_WIDTH        | Todo items width. 0 for no wrap, default is 75.   |
-| --input-width | MDT_INPUT_WIDTH       | Input prompt width. 0 for no wrap, default is 65. |
-| --editor      | MDT_EDITOR, EDITOR    | Markdown file editor.                             |
+| Option        | Environment Variable  | Description                                                            |
+| ------------  | --------------------- | ---------------------------------------------------------------------- |
+| -d, --dir     | MDT_DIR               | Path to the tasks directory. By default the current working directory. |
+| -i, --inbox   | MDT_INBOX             | Path to the inbox file. By default "todo.md".                          |
+| --color       | MDT_MAIN_COLOR        | Main color.                                                            |
+| --prompt      | MDT_PROMPT            | Input prompt character. Default is '◆'.                                |
+| --cursor      | MDT_CURSOR            | Selection character. Default is '➔'.                                   |
+| --item-width  | MDT_ITEM_WIDTH        | Todo items width. 0 for no wrap, default is 75.                        |
+| --input-width | MDT_INPUT_WIDTH       | Input prompt width. 0 for no wrap, default is 65.                      |
+| --editor      | MDT_EDITOR, EDITOR    | Markdown file editor.                                                  |
+
+Examples of using options:
+
+```sh
+# Static path to the inbox
+alias mdt='mdt --dir ~/tasks --inbox ~/tasks/inbox.md'
+# Dynamic path to the inbox
+alias mdt='mdt --dir ~/tasks --inbox ~/tasks/"$(date -I).md"'
+```
+
+Examples of using environment variables:
+
+```sh
+export MDT_MAIN_COLOR='#5FAFFF'
+export MDT_EDITOR='nvim -c "set nonumber"'
+```
 
 ## :keyboard: Keybindings
 
@@ -90,3 +83,4 @@ alias mdt='mdt --dir ~/tasks --inbox ~/tasks/inbox.md'
 | Tab/Space/x                  | Select              |
 | a/A                          | Select/unselect all |
 | Enter                        | Accept              |
+

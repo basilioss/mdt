@@ -15,7 +15,7 @@ file_editor="${MDT_EDITOR:-${EDITOR}}"
 ################################################
 
 _me="${0##*/}"
-_mdt_version="1.0.1"
+_mdt_version="1.1.0"
 
 print_help()
 {
@@ -28,8 +28,15 @@ Usage
   [--input-width <arg>] [--editor <arg>] [--version] [-h|--help]
 
 Options
-  -d, --dir           Path to the todos directory
-  -i, --inbox         Path to the inbox note
+  -d, --dir           Path to the tasks directory
+  -i, --inbox         Path to the inbox file
+  --color             Main color
+  --prompt            Input prompt character
+  --cursor            Selection character
+  --item-width        Todo items width
+  --input-width       Input prompt width
+  --editor            Markdown file editor
+  --version           Print version
   -h, --help          Print help
 "
 exit 0
