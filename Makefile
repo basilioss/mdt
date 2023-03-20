@@ -1,14 +1,13 @@
-DEST ?= /usr/local/bin
+PREFIX ?= /usr/local
 
 all:
 	@echo Run \'make install\' to install mdt
 	@echo Run \'make uninstall\' to uninstall mdt
 
 install:
-	@cp mdt $(DEST)/mdt
-	@chmod 755 $(DEST)/mdt
+	@install -Dm755 mdt $(DESTDIR)$(PREFIX)/bin/mdt
 	@echo mdt has been installed
 
 uninstall:
-	@rm -f $(DEST)/mdt
+	@rm -f $(DESTDIR)$(PREFIX)/bin/mdt
 	@echo mdt has been removed
