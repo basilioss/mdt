@@ -103,15 +103,14 @@ get_file_with_checkboxes() {
       "${_checkbox_pattern}" -- *.md | xargs -0 ls -t)"
   fi
 
-  # Choose a file from the list
-  if [ -n "${_files}" ]; then
-    _file=$(printf "%s\n" "${_files}" \
-      | gum filter --no-strict \
-      --indicator="${cursor}" \
-      --prompt="${prompt} " \
-      --indicator.foreground="${color}" \
-      --match.foreground="${color}")
-  fi
+  [ -z "${_files}" ] && die "No todo files found"
+
+  _file=$(printf "%s\n" "${_files}" \
+    | gum filter --no-strict \
+    --indicator="${cursor}" \
+    --prompt="${prompt} " \
+    --indicator.foreground="${color}" \
+    --match.foreground="${color}")
 
   # Remove .md file extensions if exist
   [ "${_file##*.}" = "md" ] && _file="${_file%.*}"
