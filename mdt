@@ -128,7 +128,7 @@ get_file_with_checkboxes() {
 list_open_todos() {
   [ -f "$1" ] && _file="$1" || exit
 
-  if ! grep -q "\- \[ \]" "${_file}" 2> /dev/null; then
+  if ! grep -qs "\- \[ \]" "${_file}"; then
     printf "%b\n" "Yey,\033[38;5;${color}m nothing\033[m left to do!" && exit
   fi
 
