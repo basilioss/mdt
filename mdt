@@ -15,7 +15,7 @@ file_editor="${MDT_EDITOR:-${EDITOR}}"
 ################################################
 
 _me="${0##*/}"
-_mdt_version="1.1.0"
+_mdt_version="1.1.1"
 
 print_help()
 {
@@ -99,15 +99,13 @@ get_file_with_checkboxes() {
   # Do not search recursively if the todos directory 
   # is the current working directory (e.g. $HOME)
   if [ "${dir}" = "${PWD}" ]; then
-    if grep -qs "${_checkbox_pattern}" -- *.md; then
-      _files="$(grep -lZ "${_checkbox_pattern}" -- *.md | xargs -0 ls -t)"
-    fi
+    _files="$(ls -1 -t -- *.md | tr "\n" "\0" \
+      | xargs -0 grep -l "${_checkbox_pattern}")"
   else
     cd "${dir}" || exit
-    _is_exist=$(find . -type f -name "*.md" -not -path '*/.*' \
-      -exec grep -q "${_checkbox_pattern}" {} + -print | head -n 1)
-    [ -n "${_is_exist}" ] && _files="$(grep -lZR --exclude-dir=".*" \
-      "${_checkbox_pattern}" -- *.md | xargs -0 ls -t)"
+    _files="$(find * -name '*.md' -not -path '*/.*' -print0 \
+      | xargs -0 ls -1 -t | tr "\n" "\0" \
+      | xargs -0 grep -l "${_checkbox_pattern}")"
   fi
 
   [ -z "${_files}" ] && die "No todo files found"
@@ -157,7 +155,8 @@ list_open_todos() {
     escaped_item=$(printf '%s\n' "${item}" \
       | sed 's/└─ //g' \
       | sed 's/[*[\/&]/\\&/g')
-    sed -i "s/\[ \] ${escaped_item}/\[x\] ${escaped_item}/g" "${_file}"
+    sed "s/\[ \] ${escaped_item}/\[x\] ${escaped_item}/g" \
+      "${_file}" > "${_file}.bak" && mv "${_file}.bak" "${_file}"
   done
 }
 
@@ -175,7 +174,8 @@ add_todo() {
   if [ -z "${_line}" ]; then
     printf "%s\n" "- [ ] ${_todo}" >> "${_file}"
   else
-    sed -i "${_line}i - [ ] ${_todo}" "${_file}"
+    awk -v line="${_line}" -v todo="- [ ] ${_todo}" 'NR==line{print todo}1' \
+      "${_file}" > "${_file}.bak" && mv "${_file}.bak" "${_file}"
   fi
 }
 

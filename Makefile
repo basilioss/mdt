@@ -5,7 +5,8 @@ all:
 	@echo Run \'make uninstall\' to uninstall mdt
 
 install:
-	@install -Dm755 mdt $(DESTDIR)$(PREFIX)/bin/mdt
+	@mkdir -p $(DESTDIR)$(PREFIX)/bin
+	@install -m 755 mdt $(DESTDIR)$(PREFIX)/bin/mdt
 	@echo mdt has been installed
 
 uninstall:
