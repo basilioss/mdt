@@ -22,11 +22,19 @@
 
 ## :rocket: Installation
 
-### Install as a package
+### Arch Linux
 
-mdt is available in the [Arch User Repository](https://aur.archlinux.org/packages/mdt). If you use Arch or an Arch-based distro, you can use `makepkg` or your AUR helper of choice to install the `mdt` package.
+```sh
+paru -S mdt # or with your AUR helper of choice
+```
 
-### Install using `make`
+### macOS (Homebrew)
+
+```sh
+brew install mdt
+```
+
+### Manual installation using `make`
 
 ```sh
 git clone https://github.com/basilioss/mdt
@@ -34,7 +42,7 @@ cd mdt
 sudo make install
 ```
 
-### Install locally
+### Manual installation with `curl`
 
 ```sh
 # Download
