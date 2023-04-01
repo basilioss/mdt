@@ -14,16 +14,16 @@ file_editor="${MDT_EDITOR:-${EDITOR}}"
 
 ################################################
 
-_me="${0##*/}"
-_mdt_version="1.1.2"
+me="${0##*/}"
+mdt_version="1.1.2"
 
 print_help()
 {
   printf %s "\
-${_me} - command-line markdown todo list manager
+${me} - command-line markdown todo list manager
 
 Usage
-  ${_me} [-d|--dir <arg>] [-i|--inbox <arg>] [--color <arg>]
+  ${me} [-d|--dir <arg>] [-i|--inbox <arg>] [--color <arg>]
   [--prompt <arg>] [--cursor <arg>] [--item-width <arg>]
   [--input-width <arg>] [--editor <arg>] [--version] [-h|--help]
 
@@ -65,7 +65,7 @@ parse_commandline()
       --input-width=*) input_width="${_key##--input-width=}" ;;
       --editor) file_editor="$2" && shift ;;
       --editor=*) file_editor="${_key##--editor=}" ;;
-      --version) printf "%s\n" "${_me} ${_mdt_version}" && exit ;;
+      --version) printf "%s\n" "${me} ${mdt_version}" && exit ;;
       -h|--help) print_help ;;
       *) die "Got an unexpected argument '$1'" ;;
     esac
@@ -95,7 +95,7 @@ get_file_with_checkboxes() {
   _checkbox_type="${1:-.}"
   _checkbox_pattern="^[[:space:]]*- \[${_checkbox_type}\]"
 
-  if [ "${_isPWD}" ]; then
+  if [ "${isPWD}" ]; then
     _files="$(ls -1 --sort=time -- *.md | tr "\n" "\0" \
       | xargs -0 grep -l "${_checkbox_pattern}")"
   else
@@ -204,7 +204,7 @@ main() {
   parse_commandline "$@"
 
   if [ "${dir}" = "${PWD}" ]; then
-    _isPWD=true
+    isPWD=true
   else
     cd "${dir}" || die "Directory does not exist"
   fi
