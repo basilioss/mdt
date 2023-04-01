@@ -15,7 +15,7 @@ file_editor="${MDT_EDITOR:-${EDITOR}}"
 ################################################
 
 _me="${0##*/}"
-_mdt_version="1.1.1"
+_mdt_version="1.1.2"
 
 print_help()
 {
@@ -95,16 +95,12 @@ get_file_with_checkboxes() {
   _checkbox_type="${1:-.}"
   _checkbox_pattern="^[[:space:]]*- \[${_checkbox_type}\]"
 
-  # Find files with checkboxes.
-  # Do not search recursively if the todos directory 
-  # is the current working directory (e.g. $HOME)
-  if [ "${dir}" = "${PWD}" ]; then
-    _files="$(ls -1 -t -- *.md | tr "\n" "\0" \
+  if [ "${_isPWD}" ]; then
+    _files="$(ls -1 --sort=time -- *.md | tr "\n" "\0" \
       | xargs -0 grep -l "${_checkbox_pattern}")"
   else
-    cd "${dir}" || exit
     _files="$(find * -name '*.md' -not -path '*/.*' -print0 \
-      | xargs -0 ls -1 -t | tr "\n" "\0" \
+      | xargs -0 ls -1 --sort=time | tr "\n" "\0" \
       | xargs -0 grep -l "${_checkbox_pattern}")"
   fi
 
@@ -206,6 +202,12 @@ set_inbox() {
 main() {
   command -v gum > /dev/null || die "gum is required but not installed, exiting"
   parse_commandline "$@"
+
+  if [ "${dir}" = "${PWD}" ]; then
+    _isPWD=true
+  else
+    cd "${dir}" || die "Directory does not exist"
+  fi
 
   _choice="$(gum choose \
     --cursor.foreground="${color}" \
