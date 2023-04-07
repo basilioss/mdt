@@ -204,7 +204,7 @@ main() {
   parse_commandline "$@"
 
   if [ "${dir}" = "${PWD}" ]; then
-    isPWD=true
+    isPWD=1
   else
     cd "${dir}" || die "Directory does not exist"
   fi
