@@ -99,8 +99,8 @@ get_file_with_checkboxes() {
     _files="$(ls -1 --sort=time -- *.md | tr "\n" "\0" \
       | xargs -0 grep -l "${_checkbox_pattern}")"
   else
-    _files="$(find * -name '*.md' -not -path '*/.*' -print0 \
-      | xargs -0 ls -1 --sort=time | tr "\n" "\0" \
+    _files="$(find * -name '*.md' -not -path '*/.*' \
+      -exec ls -1 --sort=time {} + | tr "\n" "\0" \
       | xargs -0 grep -l "${_checkbox_pattern}")"
   fi
 
