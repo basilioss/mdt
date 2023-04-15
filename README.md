@@ -34,15 +34,27 @@ paru -S mdt # or with your AUR helper of choice
 brew install mdt
 ```
 
-### Manual installation using `make`
+### Manually with `make`
 
 ```sh
+# Clone the repo
 git clone https://github.com/basilioss/mdt
+
+# Change your current directory to mdt
 cd mdt
+
+# Install
 sudo make install
+
+# Update
+git pull
+sudo make install
+
+# Remove
+sudo make uninstall
 ```
 
-### Manual installation with `curl`
+### Manually with `curl`
 
 ```sh
 # Download
