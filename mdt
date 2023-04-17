@@ -15,7 +15,7 @@ file_editor="${MDT_EDITOR:-${EDITOR}}"
 ################################################
 
 me="${0##*/}"
-mdt_version="1.2.0"
+mdt_version="1.2.1"
 
 print_help()
 {
@@ -96,11 +96,11 @@ get_file_with_checkboxes() {
   _checkbox_pattern="^[[:space:]]*- \[${_checkbox_type}\]"
 
   if [ "${isPWD}" ]; then
-    _files="$(ls -1 --sort=time -- *.md | tr "\n" "\0" \
+    _files="$(ls -1 -t -- *.md | tr "\n" "\0" \
       | xargs -0 grep -l "${_checkbox_pattern}")"
   else
     _files="$(find * -name '*.md' -not -path '*/.*' \
-      -exec ls -1 --sort=time {} + | tr "\n" "\0" \
+      -exec ls -1 -t -- {} + | tr "\n" "\0" \
       | xargs -0 grep -l "${_checkbox_pattern}")"
   fi
 
