@@ -77,6 +77,7 @@ mv mdt ~/.local/bin
 | --item-width  | MDT_ITEM_WIDTH        | Todo items width. 0 for no wrap, default is 75.                        |
 | --input-width | MDT_INPUT_WIDTH       | Input prompt width. 0 for no wrap, default is 65.                      |
 | --editor      | MDT_EDITOR, EDITOR    | Markdown file editor.                                                  |
+|               | MDT_CHECKBOX_PREFIX   | Prefix of markdown checkboxes `[ ]`/`[x]`. Default is '-'.             |
 
 Examples of using options:
 

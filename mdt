@@ -11,6 +11,7 @@ cursor="${MDT_CURSOR:-➔}"
 item_width="${MDT_ITEM_WIDTH:-75}"
 input_width="${MDT_INPUT_WIDTH:-65}"
 file_editor="${MDT_EDITOR:-${EDITOR}}"
+checkbox_prefix="${MDT_CHECKBOX_PREFIX:--}"
 
 ################################################
 
@@ -93,15 +94,15 @@ get_file_with_checkboxes() {
   # If checkbox type isn't specified, use any
   # For example: [x] [ ] [-] [/] [>] [<] ...
   _checkbox_type="${1:-.}"
-  _checkbox_pattern="^[[:space:]]*- \[${_checkbox_type}\]"
+  _checkbox_pattern="^[[:space:]]*(-|\*|\+) \[${_checkbox_type}\]"
 
   if [ "${isPWD}" ]; then
     _files="$(ls -1 -t -- *.md | tr "\n" "\0" \
-      | xargs -0 grep -l "${_checkbox_pattern}")"
+      | xargs -0 grep -El "${_checkbox_pattern}")"
   else
     _files="$(find * -name '*.md' -not -path '*/.*' \
       -exec ls -1 -t -- {} + | tr "\n" "\0" \
-      | xargs -0 grep -l "${_checkbox_pattern}")"
+      | xargs -0 grep -El "${_checkbox_pattern}")"
   fi
 
   [ -z "${_files}" ] && die "No todo files found"
@@ -129,13 +130,13 @@ get_file_with_checkboxes() {
 list_open_todos() {
   [ -f "$1" ] && _file="$1" || exit
 
-  if ! grep -qs "\- \[ \]" "${_file}"; then
+  if ! grep -Eqs "(-|\*|\+) \[ \]" "${_file}"; then
     printf "%b\n" "Yey,\033[38;5;${color}m nothing\033[m left to do!" && exit
   fi
 
-  _selected_items="$(grep "\- \[ ] " "${_file}" \
-    | sed 's/^ \{0,1\}- \[ \] //g' \
-    | sed 's/^[[:space:]]*- \[ \] /└─ /g' \
+  _selected_items="$(grep -E "(-|\*|\+) \[ \] " "${_file}" \
+    | sed 's/^ \{0,1\}[-*+] \[ \] //g' \
+    | sed 's/^[[:space:]][-*+] \[ \] /└─ /g' \
     | gum choose --no-limit \
     --item.width="${item_width}" \
     --cursor="${cursor} " \
@@ -160,7 +161,7 @@ add_todo() {
   [ -f "$1" ] && _file="$1" || exit
 
   _line="$(grep --line-number --extended-regexp \
-    "\- \[.?]" "${_file}" | cut -d: -f1 | head -1)"
+    "(-|\*|\+) \[.?]" "${_file}" | cut -d: -f1 | head -1)"
 
   _todo="$(gum input --prompt="${prompt} " \
     --prompt.foreground="${color}" \
@@ -176,9 +177,10 @@ add_todo() {
   [ -z "${_checkbox}" ] && _todo="[ ] ${_todo}"
 
   if [ -z "${_line}" ]; then
-    printf "%s\n" "- ${_todo}" >> "${_file}"
+    printf "%s\n" "${checkbox_prefix} ${_todo}" >> "${_file}"
   else
-    awk -v line="${_line}" -v todo="- ${_todo}" 'NR==line{print todo}1' \
+    awk -v line="${_line}" -v todo="${checkbox_prefix} ${_todo}" \
+      'NR==line{print todo}1' \
       "${_file}" > "${_file}.bak" && mv "${_file}.bak" "${_file}"
   fi
 }
