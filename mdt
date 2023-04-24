@@ -5,6 +5,7 @@
 
 dir="${MDT_DIR:-$PWD}"
 inbox="${MDT_INBOX}"
+unite_tasks="${MDT_UNITE_TASKS:-false}"
 color="${MDT_MAIN_COLOR:-5}"
 prompt="${MDT_PROMPT:-◆}"
 cursor="${MDT_CURSOR:-➔}"
@@ -54,6 +55,7 @@ parse_commandline()
       --dir=*) dir="${_key##--dir=}" ;;
       -i|--inbox) inbox="$2" && shift ;;
       --inbox=*) inbox="${_key##--inbox=}" ;;
+      -u|--unite-tasks) unite_tasks=true ;;
       --color) color="$2" && shift ;;
       --color=*) color="${_key##--color=}" ;;
       --prompt) prompt="$2" && shift ;;
@@ -96,6 +98,7 @@ get_file_with_checkboxes() {
   _checkbox_type="${1:-.}"
   _checkbox_pattern="^[[:space:]]*(-|\*|\+) \[${_checkbox_type}\]"
 
+  # Do not search recursively if $dir isn't specified
   if [ "${isPWD}" ]; then
     _files="$(ls -1 -t -- *.md | tr "\n" "\0" \
       | xargs -0 grep -El "${_checkbox_pattern}")"
@@ -120,11 +123,30 @@ get_file_with_checkboxes() {
   # Add path to the directory and file extension
   [ -n "${_file}" ] && _file="${dir}/${_file}.md" || exit
 
-  # Don't create a new file if checkbox type is specified
+  # Create a new file only if checkbox type isn't specified because
+  # we can't list tasks from a non-existent file that doesn't have them
   [ "${_checkbox_type}" = '.' ] && create_file_if_missing "${_file}"
 
   # Return path to the file
   [ -f "${_file}" ] && printf "%s\n" "${_file}"
+}
+
+get_header_with_tasks() {
+  _headers="$(awk \
+    '/^#/ { header = $0 } /^[-*+] \[.]/ { print header; header = "" }' \
+    "${_file}" | grep -v '^$')"
+
+  if [ "$(printf "%s\n" "${_headers}" | wc -l)" -gt 1  ]; then
+    _header="$(printf "%s\n" "${_headers}" | gum choose \
+      --item.width="${item_width}" \
+      --cursor="${cursor} " \
+      --cursor.foreground="${color}")"
+    [ -z "${_header}" ] && exit 1
+  else
+    _header="${_headers}"
+  fi
+
+  printf "%s" "${_header}"
 }
 
 list_open_todos() {
@@ -134,9 +156,16 @@ list_open_todos() {
     printf "%b\n" "Yey,\033[38;5;${color}m nothing\033[m left to do!" && exit
   fi
 
-  _selected_items="$(grep -E "(-|\*|\+) \[ \] " "${_file}" \
+  if [ "${unite_tasks}" = true ]; then
+    _items="$(grep -E "(-|\*|\+) \[ \] " "${_file}")"
+  else
+    _items="$(awk -v header="$(get_header_with_tasks)" \
+      '$0 ~ header {p=1; next} /^#/ {p=0} p && /^\s*[-*+] \[ ]/ {print}' "${_file}")"
+  fi
+
+  [ -n "${_items}" ] && _selected_items="$(printf "%s\n" "${_items}" \
     | sed 's/^ \{0,1\}[-*+] \[ \] //g' \
-    | sed 's/^[[:space:]][-*+] \[ \] /└─ /g' \
+    | sed 's/^[[:space:]]*[-*+] \[ \] /└─ /g' \
     | gum choose --no-limit \
     --item.width="${item_width}" \
     --cursor="${cursor} " \
@@ -160,8 +189,13 @@ list_open_todos() {
 add_todo() {
   [ -f "$1" ] && _file="$1" || exit
 
-  _line="$(grep --line-number --extended-regexp \
-    "(-|\*|\+) \[.?]" "${_file}" | cut -d: -f1 | head -1)"
+  _header="$(get_header_with_tasks)" || exit
+
+  # Get line number of the first task under the header
+  _line="$(awk -v header="${_header}" \
+    '$0 ~ header {p=1; next} /^#/ {p=0} \
+    p && /^[-*+] \[.]/ && !found {line=NR; found=1} \
+    END {print line}' "${_file}")"
 
   _todo="$(gum input --prompt="${prompt} " \
     --prompt.foreground="${color}" \

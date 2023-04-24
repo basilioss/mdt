@@ -67,17 +67,18 @@ mv mdt ~/.local/bin
 
 ## :gear: Configuration
 
-| Option        | Environment Variable  | Description                                                            |
-| ------------  | --------------------- | ---------------------------------------------------------------------- |
-| -d, --dir     | MDT_DIR               | Path to the tasks directory. By default the current working directory. |
-| -i, --inbox   | MDT_INBOX             | Path to the inbox file. By default "todo.md".                          |
-| --color       | MDT_MAIN_COLOR        | Main color.                                                            |
-| --prompt      | MDT_PROMPT            | Input prompt character. Default is '◆'.                                |
-| --cursor      | MDT_CURSOR            | Selection character. Default is '➔'.                                   |
-| --item-width  | MDT_ITEM_WIDTH        | Todo items width. 0 for no wrap, default is 75.                        |
-| --input-width | MDT_INPUT_WIDTH       | Input prompt width. 0 for no wrap, default is 65.                      |
-| --editor      | MDT_EDITOR, EDITOR    | Markdown file editor.                                                  |
-|               | MDT_CHECKBOX_PREFIX   | Prefix of markdown checkboxes `[ ]`/`[x]`. Default is '-'.             |
+| Option            | Environment Variable  | Description                                                                                                          |
+| ------------      | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| -d, --dir         | MDT_DIR               | Path to the tasks directory. By default the current working directory.                                               |
+| -i, --inbox       | MDT_INBOX             | Path to the inbox file. By default "todo.md".                                                                        |
+| -u, --unite-tasks | MDT_UNITE_TASKS       | List all tasks in the file. By default false, if tasks are separated by headings, mdt will prompt you to select one. |
+| --color           | MDT_MAIN_COLOR        | Main color.                                                                                                          |
+| --prompt          | MDT_PROMPT            | Input prompt character. Default is '◆'.                                                                              |
+| --cursor          | MDT_CURSOR            | Selection character. Default is '➔'.                                                                                 |
+| --item-width      | MDT_ITEM_WIDTH        | Todo items width. 0 for no wrap, default is 75.                                                                      |
+| --input-width     | MDT_INPUT_WIDTH       | Input prompt width. 0 for no wrap, default is 65.                                                                    |
+| --editor          | MDT_EDITOR, EDITOR    | Markdown file editor.                                                                                                |
+|                   | MDT_CHECKBOX_PREFIX   | Prefix of markdown checkboxes `[ ]`/`[x]`. Default is '-'.                                                           |
 
 Examples of using options:
 
