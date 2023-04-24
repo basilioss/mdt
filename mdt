@@ -17,7 +17,7 @@ checkbox_prefix="${MDT_CHECKBOX_PREFIX:--}"
 ################################################
 
 me="${0##*/}"
-mdt_version="1.2.1"
+mdt_version="1.3.0"
 
 print_help()
 {
@@ -32,6 +32,7 @@ Usage
 Options
   -d, --dir           Path to the tasks directory
   -i, --inbox         Path to the inbox file
+  -u, --unite-tasks   List all tasks in the file
   --color             Main color
   --prompt            Input prompt character
   --cursor            Selection character
