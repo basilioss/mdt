@@ -233,7 +233,7 @@ die() {
 # If inbox isn't specified, use default. 
 # If it doesn't exist, ask to create.
 set_inbox() {
-  _default_inbox="${dir}/todo.md"
+  _default_inbox="${dir}/TODO.md"
   inbox="${inbox:-$_default_inbox}"
 
   if [ ! -f "${inbox}" ]; then
