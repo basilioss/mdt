@@ -76,6 +76,13 @@ parse_commandline()
   done
 }
 
+gum_choose() {
+  gum choose --item.width="${item_width}" \
+  --selected.foreground="${color}" \
+  --cursor.foreground="${color}" \
+  --cursor="${cursor} " "$@"
+}
+
 create_file_if_missing() {
   _file="$1"
   _basename="$(basename "${_file}" .md)"
@@ -137,10 +144,7 @@ get_header_with_tasks() {
     "${_file}" | grep -v '^$')"
 
   if [ "$(printf "%s\n" "${_headers}" | wc -l)" -gt 1  ]; then
-    _header="$(printf "%s\n" "${_headers}" | gum choose \
-      --item.width="${item_width}" \
-      --cursor="${cursor} " \
-      --cursor.foreground="${color}")"
+    _header="$(printf "%s\n" "${_headers}" | gum_choose)"
     [ -z "${_header}" ] && exit 1
   else
     _header="${_headers}"
@@ -166,11 +170,7 @@ list_open_todos() {
   [ -n "${_items}" ] && _selected_items="$(printf "%s\n" "${_items}" \
     | sed 's/^ \{0,1\}[-*+] \[ \] //g' \
     | sed 's/^[[:space:]]*[-*+] \[ \] /└─ /g' \
-    | gum choose --no-limit \
-    --item.width="${item_width}" \
-    --cursor="${cursor} " \
-    --cursor.foreground="${color}" \
-    --selected.foreground="${color}" \
+    | gum_choose --no-limit \
     --cursor-prefix "[ ] " \
     --selected-prefix "[✓] " \
     --unselected-prefix "[ ] ")"
@@ -253,10 +253,7 @@ main() {
     cd "${dir}" || die "Directory does not exist"
   fi
 
-  _choice="$(gum choose \
-    --cursor.foreground="${color}" \
-    --cursor="${cursor} " \
-    "List inbox" "Add inbox" "List" "Add" "Edit")"
+  _choice="$(gum_choose "List inbox" "Add inbox" "List" "Add" "Edit")"
 
   case "${_choice}" in
     "List")
