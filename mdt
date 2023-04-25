@@ -26,23 +26,24 @@ print_help()
 ${me} - command-line markdown todo list manager
 
 Usage
-  ${me} [-d|--dir <arg>] [-i|--inbox <arg>] [--color <arg>]
-  [--prompt <arg>] [--cursor <arg>] [--item-width <arg>]
-  [--input-width <arg>] [--editor <arg>] [--version] [-h|--help]
+  ${me} [-d|--dir <arg>] [-i|--inbox <arg>] [-m|--add-multiple]
+  [-u|--unite-tasks] [--color <arg>] [--prompt <arg>]
+  [--cursor <arg>] [--item-width <arg>] [--input-width <arg>]
+  [--editor <arg>] [-v|--version] [-h|--help]
 
 Options
-  -d, --dir           Path to the tasks directory
-  -i, --inbox         Path to the inbox file
-  -m, --add-multiple  Add multiple tasks
-  -u, --unite-tasks   List all tasks in the file
-  --color             Main color
-  --prompt            Input prompt character
-  --cursor            Selection character
-  --item-width        Todo items width
-  --input-width       Input prompt width
-  --editor            Markdown file editor
-  --version           Print version
-  -h, --help          Print help
+  -d, --dir               Path to the tasks directory
+  -i, --inbox             Path to the inbox file
+  -m, --add-multiple      Add multiple tasks
+  -u, --unite-tasks       List all tasks in the file
+  --color                 Main color
+  --prompt                Input prompt character
+  --cursor                Selection character
+  --item-width            Todo items width
+  --input-width           Input prompt width
+  --editor                Markdown file editor
+  -v, --version           Print version
+  -h, --help              Print help
 "
 exit 0
 }
@@ -72,7 +73,7 @@ parse_commandline()
       --input-width=*) input_width="${_key##--input-width=}" ;;
       --editor) file_editor="$2" && shift ;;
       --editor=*) file_editor="${_key##--editor=}" ;;
-      --version) printf "%s\n" "${me} ${mdt_version}" && exit ;;
+      -v|--version) printf "%s\n" "${me} ${mdt_version}" && exit ;;
       -h|--help) print_help ;;
       *) die "Got an unexpected argument '$1'" ;;
     esac
