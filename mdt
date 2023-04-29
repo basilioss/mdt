@@ -3,10 +3,10 @@
 
 # Configuration ################################
 
-dir="${MDT_DIR:-$PWD}"
+dir="${MDT_DIR}"
 inbox="${MDT_INBOX}"
 add_multiple_tasks="${MDT_ADD_MULTIPLE_TASKS:-0}"
-unite_tasks="${MDT_UNITE_TASKS:-false}"
+unite_tasks="${MDT_UNITE_TASKS:-0}"
 color="${MDT_MAIN_COLOR:-5}"
 prompt="${MDT_PROMPT:-◆}"
 cursor="${MDT_CURSOR:-➔}"
@@ -18,7 +18,7 @@ checkbox_prefix="${MDT_CHECKBOX_PREFIX:--}"
 ################################################
 
 me="${0##*/}"
-mdt_version="1.3.0"
+mdt_version="1.4.0"
 
 print_help()
 {
@@ -60,7 +60,7 @@ parse_commandline()
       -i|--inbox) inbox="$2" && shift ;;
       --inbox=*) inbox="${_key##--inbox=}" ;;
       -m|--add-multiple) add_multiple_tasks=1 ;;
-      -u|--unite-tasks) unite_tasks=true ;;
+      -u|--unite-tasks) unite_tasks=1 ;;
       --color) color="$2" && shift ;;
       --color=*) color="${_key##--color=}" ;;
       --prompt) prompt="$2" && shift ;;
@@ -79,6 +79,11 @@ parse_commandline()
     esac
     shift
   done
+}
+
+die() {
+  printf 'Error: %s.\n' "$1" >&2
+  exit 1
 }
 
 gum_choose() {
@@ -117,13 +122,13 @@ get_file_with_checkboxes() {
   _checkbox_pattern="^[[:space:]]*(-|\*|\+) \[${_checkbox_type}\]"
 
   # Do not search recursively if $dir isn't specified
-  if [ "${isPWD}" ]; then
+  if [ "${isDirNotSpecified}" ]; then
     _files="$(ls -1 -t -- *.md | tr "\n" "\0" \
-      | xargs -0 grep -El "${_checkbox_pattern}")"
+      | xargs -0 grep -E --files-with-matches "${_checkbox_pattern}")"
   else
     _files="$(find * -name '*.md' -not -path '*/.*' \
       -exec ls -1 -t -- {} + | tr "\n" "\0" \
-      | xargs -0 grep -El "${_checkbox_pattern}")"
+      | xargs -0 grep -E --files-with-matches "${_checkbox_pattern}")"
   fi
 
   [ -z "${_files}" ] && die "No todo files found"
@@ -152,9 +157,9 @@ get_file_with_checkboxes() {
 get_header_with_tasks() {
   _headers="$(awk \
     '/^#/ { header = $0 } /^[-*+] \[.]/ { print header; header = "" }' \
-    "${_file}" | grep -v '^$')"
+    "${_file}" | grep --invert-match '^$')"
 
-  if [ "$(printf "%s\n" "${_headers}" | wc -l)" -gt 1  ]; then
+  if [ "$(printf "%s\n" "${_headers}" | wc -l)" -gt 1 ]; then
     _header="$(printf "%s\n" "${_headers}" | gum_choose)"
     [ -z "${_header}" ] && exit 1
   else
@@ -168,24 +173,27 @@ get_header_with_tasks() {
 list_open_todos() {
   [ -f "$1" ] && _file="$1" || exit
 
-  if ! grep -Eqs "(-|\*|\+) \[ \]" "${_file}"; then
+  if ! grep -E --quiet --no-messages "(-|\*|\+) \[ \]" "${_file}"; then
     printf "%b\n" "Yey,\033[38;5;${color}m nothing\033[m left to do!" && exit
   fi
 
-  if [ "${unite_tasks}" = true ]; then
+  if [ "${unite_tasks}" = true ] || [ "${unite_tasks}" = 1 ]; then
     _items="$(grep -E "(-|\*|\+) \[ \] " "${_file}")"
   else
     _items="$(awk -v header="$(get_header_with_tasks)" \
-      '$0 ~ header {p=1; next} /^#/ {p=0} p && /^\s*[-*+] \[ ]/ {print}' "${_file}")"
+      '$0 ~ header {p=1; next} /^#/ {p=0} p && /[-*+] \[ ] / {print}' "${_file}")"
   fi
 
-  [ -n "${_items}" ] && _selected_items="$(printf "%s\n" "${_items}" \
-    | sed 's/^ \{0,1\}[-*+] \[ \] //g' \
-    | sed 's/^[[:space:]]*[-*+] \[ \] /└─ /g' \
-    | gum_choose --no-limit \
-    --cursor-prefix "[ ] " \
-    --selected-prefix "[✓] " \
-    --unselected-prefix "[ ] ")"
+  if [ -n "${_items}" ]; then
+    # Add "└─ " at the beginning for subtasks
+    _selected_items="$(printf "%s\n" "${_items}" \
+      | sed 's/^ \{0,1\}[-*+] \[ \] //g' \
+      | sed 's/^[[:space:]]*[-*+] \[ \] /└─ /g' \
+      | gum_choose --no-limit \
+      --cursor-prefix "[ ] " \
+      --selected-prefix "[✓] " \
+      --unselected-prefix "[ ] ")"
+  fi
 
   [ -z "${_selected_items}" ] && exit
 
@@ -222,10 +230,10 @@ add_todo() {
       p && /^[-*+] \[.]/ && !found {line=NR; found=1} \
       END {print line}' "${_file}")"
 
-    # Add a checkbox before $_item it isn't explicitly specified
+    # Add a checkbox before $_item if it isn't explicitly specified
     # Example checkboxes for inspiration:
     # https://minimal.guide/Block+types/Checklists#Checkbox+icons
-    _checkbox="$(printf "%s\n" "${_item}" | grep -o "^\[.\?\] ")"
+    _checkbox="$(printf "%s\n" "${_item}" | grep --only-matching "^\[.\?\] ")"
     [ -z "${_checkbox}" ] && _item="[ ] ${_item}"
 
     if [ -z "${_line}" ]; then
@@ -244,12 +252,7 @@ edit_todo() {
   eval "${file_editor}" "\"${_file}\""
 }
 
-die() {
-  printf 'Error: %s.\n' "$1" >&2
-  exit 1
-}
-
-# If inbox isn't specified, use default. 
+# If inbox isn't specified, use default.
 # If it doesn't exist, ask to create.
 set_inbox() {
   _default_inbox="${dir}/TODO.md"
@@ -266,8 +269,9 @@ main() {
   command -v gum > /dev/null || die "gum is required but not installed, exiting"
   parse_commandline "$@"
 
-  if [ "${dir}" = "${PWD}" ]; then
-    isPWD=1
+  if [ -z "${dir}" ]; then
+    dir="${PWD}"
+    isDirNotSpecified=1
   else
     cd "${dir}" || die "Directory does not exist"
   fi
