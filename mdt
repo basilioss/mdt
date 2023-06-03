@@ -7,6 +7,10 @@ dir="${MDT_DIR}"
 inbox="${MDT_INBOX}"
 add_multiple_tasks="${MDT_ADD_MULTIPLE_TASKS:-0}"
 unite_tasks="${MDT_UNITE_TASKS:-0}"
+# TODO: Speed up and refactor
+display_titles="${MDT_DISPLAY_TITLES:-0}"
+# TODO: Specify filename of created notes
+# todo_filename="${MDT_TODO_FILENAME:-$(date +%Y%m%d%H%M)}"
 color="${MDT_MAIN_COLOR:-5}"
 prompt="${MDT_PROMPT:-◆}"
 cursor="${MDT_CURSOR:-➔}"
@@ -37,6 +41,7 @@ Options
   -a, --add-inbox         Automatically select 'Add inbox' option
   -e, --edit-inbox        Open inbox note in the editor
   -m, --add-multiple      Add multiple tasks
+  --display-titles        Display first heading instead of filename
   -u, --unite-tasks       List all tasks in the file
   --color                 Main color
   --prompt                Input prompt character
@@ -63,6 +68,7 @@ parse_commandline() {
       -l | --list-inbox) choice="List inbox" ;;
       -a | --add-inbox) choice="Add inbox" ;;
       -e | --edit-inbox) set_inbox && edit_todo "${inbox}" && exit ;;
+      --display-titles) display_titles=1 ;;
       --color) color="$2" && shift ;;
       --color=*) color="${_key##--color=}" ;;
       --prompt) prompt="$2" && shift ;;
@@ -135,12 +141,31 @@ get_file_with_checkboxes() {
 
   [ -z "${_files}" ] && die "No todo files found"
 
-  _file=$(printf "%s\n" "${_files}" |
+  if [ "${display_titles}" = true ] || [ "$display_titles" = 1 ]; then
+    _titles_file=$(mktemp) # Create a temporary file
+    printf "%s\n" "${_files}" | while read -r file; do
+      title=$(sed -n '/^# .*/{p;q;}' "$file" | sed 's/^# *//')
+      [ -z "${title}" ] && title="$file"
+      printf "%s\n" "$title@@@$file" >> "$_titles_file"
+    done
+    _files=$(cat "$_titles_file")
+    rm "$_titles_file"
+  fi
+
+  _file=$(printf "%s\n" "${_files}" | sed 's/@@@.*//g' |
     gum filter --no-strict \
       --indicator="${cursor}" \
       --prompt="${prompt} " \
       --indicator.foreground="${color}" \
       --match.foreground="${color}")
+
+  [ -z "${_file}" ] && exit
+
+  if [ "${display_titles}" = true ] || [ "$display_titles" = 1 ]; then
+    _file="$(printf "%s\n" "$_files" |
+      grep "$_file" |
+      awk -F '@@@' '{print $2}')"
+  fi
 
   # Remove .md file extensions if exist
   [ "${_file##*.}" = "md" ] && _file="${_file%.*}"
