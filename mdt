@@ -128,6 +128,7 @@ get_file_with_checkboxes() {
   # For example: [x] [ ] [-] [/] [>] [<] ...
   _checkbox_type="${1:-.}"
   _checkbox_pattern="^[[:space:]]*(-|\*|\+) \[${_checkbox_type}\]"
+  _separator="@@@"
 
   # Do not search recursively if $dir isn't specified
   if [ "${isDirNotSpecified}" ]; then
@@ -144,15 +145,15 @@ get_file_with_checkboxes() {
   if [ "${display_titles}" = true ] || [ "$display_titles" = 1 ]; then
     _titles_file=$(mktemp) # Create a temporary file
     printf "%s\n" "${_files}" | while read -r file; do
-      title=$(sed -n '/^# .*/{p;q;}' "$file" | sed 's/^# *//')
-      [ -z "${title}" ] && title="$file"
-      printf "%s\n" "$title@@@$file" >> "$_titles_file"
+      title=$(sed -n '/^# .*/{p;q;}' "${file}" | sed 's/^# *//')
+      [ -z "${title}" ] && title="${file}"
+      printf "%s\n" "${title}${_separator}${file}" >> "${_titles_file}"
     done
-    _files=$(cat "$_titles_file")
-    rm "$_titles_file"
+    _files=$(cat "${_titles_file}")
+    rm "${_titles_file}"
   fi
 
-  _file=$(printf "%s\n" "${_files}" | sed 's/@@@.*//g' |
+  _file=$(printf "%s\n" "${_files}" | sed "s/${_separator}.*//g" |
     gum filter --no-strict \
       --indicator="${cursor}" \
       --prompt="${prompt} " \
@@ -162,9 +163,9 @@ get_file_with_checkboxes() {
   [ -z "${_file}" ] && exit
 
   if [ "${display_titles}" = true ] || [ "$display_titles" = 1 ]; then
-    _file="$(printf "%s\n" "$_files" |
-      grep "^$_file@@@.*" |
-      awk -F '@@@' '{print $2}')"
+    _file="$(printf "%s\n" "${_files}" |
+      grep "^${_file}${_separator}.*" |
+      awk -F "${_separator}" '{print $2}')"
   fi
 
   # Remove .md file extensions if exist
