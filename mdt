@@ -163,7 +163,7 @@ get_file_with_checkboxes() {
 
   if [ "${display_titles}" = true ] || [ "$display_titles" = 1 ]; then
     _file="$(printf "%s\n" "$_files" |
-      grep "$_file" |
+      grep "^$_file@@@.*" |
       awk -F '@@@' '{print $2}')"
   fi
 
