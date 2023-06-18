@@ -7,10 +7,8 @@ dir="${MDT_DIR}"
 inbox="${MDT_INBOX}"
 add_multiple_tasks="${MDT_ADD_MULTIPLE_TASKS:-0}"
 unite_tasks="${MDT_UNITE_TASKS:-0}"
-# TODO: Speed up and refactor
 display_titles="${MDT_DISPLAY_TITLES:-0}"
-# TODO: Specify filename of created notes
-# todo_filename="${MDT_TODO_FILENAME:-$(date +%Y%m%d%H%M)}"
+todo_filename="${MDT_NEW_FILE_NAMES}"
 color="${MDT_MAIN_COLOR:-5}"
 prompt="${MDT_PROMPT:-◆}"
 cursor="${MDT_CURSOR:-➔}"
@@ -41,8 +39,9 @@ Options
   -a, --add-inbox         Automatically select 'Add inbox' option
   -e, --edit-inbox        Open inbox note in the editor
   -m, --add-multiple      Add multiple tasks
-  --display-titles        Display first heading instead of filename
   -u, --unite-tasks       List all tasks in the file
+  --display-titles        Display first heading instead of filename
+  --todo-filename         Filename of the newly created files
   --color                 Main color
   --prompt                Input prompt character
   --cursor                Selection character
@@ -69,6 +68,8 @@ parse_commandline() {
       -a | --add-inbox) choice="Add inbox" ;;
       -e | --edit-inbox) set_inbox && edit_todo "${inbox}" && exit ;;
       --display-titles) display_titles=1 ;;
+      --todo-filename) todo_filename="$2" && shift ;;
+      --todo-filename=*) todo_filename="${_key##--todo-filename=}" ;;
       --color) color="$2" && shift ;;
       --color=*) color="${_key##--color=}" ;;
       --prompt) prompt="$2" && shift ;;
@@ -109,20 +110,28 @@ gum_input() {
 
 create_file_if_missing() {
   _file="$1"
+  _title="$2"
   _basename="$(basename "${_file}" .md)"
 
-  if [ ! -f "${_file}" ]; then
-    gum confirm \
-      --selected.background="${color}" \
-      --selected.foreground="#262626" \
-      --prompt.padding="0 2" \
-      "File does not exist, create?"
-    if [ $? -eq 0 ]; then
-      printf "%s\n\n" "# ${_basename}" > "${_file}"
-    fi
+  [ -f "${_file}" ] && return
+
+  gum confirm \
+    --selected.background="${color}" \
+    --selected.foreground="#262626" \
+    --prompt.padding="0 2" \
+    "File does not exist, create?"
+
+  # Exit if the answer is "No"
+  [ ! $? -eq 0 ] && exit
+
+  if [ -n "${_title}" ]; then
+    printf "%s\n\n" "# ${_title}" > "${_file}"
+  else
+    printf "%s\n\n" "# ${_basename}" > "${_file}"
   fi
 }
 
+# TODO: Speed up and refactor display_titles
 get_file_with_checkboxes() {
   # If checkbox type isn't specified, use any
   # For example: [x] [ ] [-] [/] [>] [<] ...
@@ -153,30 +162,37 @@ get_file_with_checkboxes() {
     rm "${_titles_file}"
   fi
 
-  _file=$(printf "%s\n" "${_files}" | sed "s/${_separator}.*//g" |
+  _filename=$(printf "%s\n" "${_files}" | sed "s/${_separator}.*//g" |
     gum filter --no-strict \
       --indicator="${cursor}" \
       --prompt="${prompt} " \
       --indicator.foreground="${color}" \
       --match.foreground="${color}")
 
-  [ -z "${_file}" ] && exit
+  [ -z "${_filename}" ] && exit
 
-  if [ "${display_titles}" = true ] || [ "$display_titles" = 1 ]; then
+  if [ "${display_titles}" = true ] || [ "${display_titles}" = 1 ]; then
     _file="$(printf "%s\n" "${_files}" |
-      grep "^${_file}${_separator}.*" |
-      awk -F "${_separator}" '{print $2}')"
+      awk -F "${_separator}" -v file="${_filename}" '$1 == file {print $2}')"
+  fi
+
+  if [ -n "${todo_filename}" ]; then
+    _title="${_filename}"
+    _file="${todo_filename}.md"
+  fi
+
+  if [ -z "${_file}" ]; then
+    _file="${_filename}"
   fi
 
   # Remove .md file extensions if exist
   [ "${_file##*.}" = "md" ] && _file="${_file%.*}"
 
-  # Add path to the directory and file extension
   [ -n "${_file}" ] && _file="${dir}/${_file}.md" || exit
 
   # Create a new file only if checkbox type isn't specified because
   # we can't list tasks from a non-existent file that doesn't have them
-  [ "${_checkbox_type}" = '.' ] && create_file_if_missing "${_file}"
+  [ "${_checkbox_type}" = '.' ] && create_file_if_missing "${_file}" "${_title}"
 
   # Return path to the file
   [ -f "${_file}" ] && printf "%s\n" "${_file}"
