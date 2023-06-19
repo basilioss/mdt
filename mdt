@@ -176,19 +176,17 @@ get_file_with_checkboxes() {
       awk -F "${_separator}" -v file="${_filename}" '$1 == file {print $2}')"
   fi
 
-  if [ -n "${todo_filename}" ]; then
-    _title="${_filename}"
-    _file="${todo_filename}.md"
-  fi
-
-  if [ -z "${_file}" ]; then
-    _file="${_filename}"
-  fi
+  [ -z "${_file}" ] && _file="${_filename}"
 
   # Remove .md file extensions if exist
   [ "${_file##*.}" = "md" ] && _file="${_file%.*}"
 
   [ -n "${_file}" ] && _file="${dir}/${_file}.md" || exit
+
+  if [ -n "${todo_filename}" ]; then
+    _title="${_filename}"
+    [ ! -f "${_file}" ] && _file="${todo_filename}.md"
+  fi
 
   # Create a new file only if checkbox type isn't specified because
   # we can't list tasks from a non-existent file that doesn't have them
