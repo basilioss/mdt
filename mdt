@@ -12,7 +12,6 @@ todo_filename="${MDT_NEW_FILE_NAMES}"
 color="${MDT_MAIN_COLOR:-5}"
 prompt="${MDT_PROMPT:-◆}"
 cursor="${MDT_CURSOR:-➔}"
-item_width="${MDT_ITEM_WIDTH:-75}"
 input_width="${MDT_INPUT_WIDTH:-65}"
 file_editor="${MDT_EDITOR:-${EDITOR}}"
 checkbox_prefix="${MDT_CHECKBOX_PREFIX:--}"
@@ -96,7 +95,7 @@ die() {
 }
 
 gum_choose() {
-  gum choose --item.width="${item_width}" \
+  gum choose ${item_width:+--item.width=${item_width}} \
     --selected.foreground="${color}" \
     --cursor.foreground="${color}" \
     --cursor="${cursor} " "$@"
