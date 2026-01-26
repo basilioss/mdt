@@ -467,12 +467,15 @@ list_tasks_numbered() {
   _all_tasks=""
 
   if [ -n "${_recursive}" ]; then
-    # Find all TODO.md files in current dir and subdirs
+    # Find all TODO.md files in current dir and subdirs (recursively)
     _files="${_file}"
-    for _subfile in */TODO.md; do
-      [ -f "${_subfile}" ] && _files="${_files}
+    _inbox_name="$(basename "${_file}")"
+    while IFS= read -r _subfile; do
+      [ -n "${_subfile}" ] && [ -f "${_subfile}" ] && _files="${_files}
 ${_subfile}"
-    done
+    done <<EOF
+$(find . -mindepth 2 -name "${_inbox_name}" -not -path '*/.*' 2>/dev/null)
+EOF
   else
     _files="${_file}"
   fi
