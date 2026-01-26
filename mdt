@@ -36,7 +36,7 @@ Options
   -d, --dir               Path to the tasks directory
   -i, --inbox             Path to the inbox file
   -l, --list-inbox        Automatically select 'List inbox' option
-  -a, --add-inbox         Automatically select 'Add inbox' option
+  -a, --add-inbox [TASK]  Add to inbox (interactive if TASK omitted)
   -e, --edit-inbox        Open inbox note in the editor
   -m, --add-multiple      Add multiple tasks
   -u, --unite-tasks       List all tasks in the file
@@ -65,7 +65,14 @@ parse_commandline() {
       -m | --add-multiple) add_multiple_tasks=1 ;;
       -u | --unite-tasks) unite_tasks=1 ;;
       -l | --list-inbox) choice="List inbox" ;;
-      -a | --add-inbox) choice="Add inbox" ;;
+      -a | --add-inbox)
+        # Check if next arg exists and isn't a flag (for non-interactive add)
+        if [ $# -gt 1 ] && [ "${2#-}" = "$2" ]; then
+          quick_add_task="$2"
+          shift
+        fi
+        choice="Add inbox"
+        ;;
       -e | --edit-inbox) set_inbox && edit_todo "${inbox}" && exit ;;
       --display-titles) display_titles=1 ;;
       --todo-filename) todo_filename="$2" && shift ;;
@@ -294,6 +301,25 @@ edit_todo() {
   eval "${file_editor}" "\"${_file}\""
 }
 
+# Non-interactive add: appends a task directly to the file
+quick_add_todo() {
+  _file="$1"
+  _task="$2"
+
+  # Create file with header if it doesn't exist
+  if [ ! -f "${_file}" ]; then
+    _basename="$(basename "${_file}" .md)"
+    printf "%s\n\n" "# ${_basename}" > "${_file}"
+  fi
+
+  # Add checkbox prefix if not already present
+  _checkbox="$(printf "%s\n" "${_task}" | grep --only-matching "^\[.\?\] ")"
+  [ -z "${_checkbox}" ] && _task="[ ] ${_task}"
+
+  printf "%s %s\n" "${checkbox_prefix}" "${_task}" >> "${_file}"
+  printf "Added: %s\n" "${_task}"
+}
+
 # If inbox isn't specified, use default.
 # If it doesn't exist, ask to create.
 set_inbox() {
@@ -333,7 +359,13 @@ main() {
       add_todo "$(get_file_with_checkboxes)"
       ;;
     "Add inbox")
-      set_inbox && add_todo "${inbox}"
+      if [ -n "${quick_add_task}" ]; then
+        # Non-interactive mode
+        inbox="${inbox:-${dir}/TODO.md}"
+        quick_add_todo "${inbox}" "${quick_add_task}"
+      else
+        set_inbox && add_todo "${inbox}"
+      fi
       ;;
     "Edit")
       edit_todo "$(get_file_with_checkboxes)"
