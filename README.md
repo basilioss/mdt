@@ -14,7 +14,7 @@
 This fork adds CLI-first quick actions that work without the interactive TUI:
 
 - `mdt "Buy milk"` — add task directly from command line
-- `mdt -l` — list tasks with numbers and summary (scans subfolders)
+- `mdt -l` — list tasks with numbers and summary (scans subfolders recursively)
 - `mdt -l keyword` — filter tasks containing "keyword"
 - `mdt -c 2` — toggle task 2 complete/incomplete
 - `mdt -d 3` — delete task 3
@@ -23,6 +23,8 @@ This fork adds CLI-first quick actions that work without the interactive TUI:
 - ESC navigates back instead of quitting
 - Works with TODO.md files that have no headers
 - Opens default markdown app on macOS when no `$EDITOR` is set
+- Settings menu with fullscreen mode toggle (saved to `~/.config/mdt/config`)
+- Creating a new inbox returns to menu with feedback instead of exiting
 
 ---
 

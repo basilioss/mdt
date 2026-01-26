@@ -17,6 +17,13 @@ input_width="${MDT_INPUT_WIDTH:-65}"
 file_editor="${MDT_EDITOR:-${EDITOR}}"
 checkbox_prefix="${MDT_CHECKBOX_PREFIX:--}"
 
+# Config file for persistent settings
+config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/mdt"
+config_file="${config_dir}/config"
+
+# Default settings (can be overridden by config file)
+fullscreen="${MDT_FULLSCREEN:-0}"
+
 ################################################
 
 me="${0##*/}"
@@ -134,6 +141,44 @@ parse_commandline() {
 die() {
   printf 'Error: %s.\n' "$1" >&2
   exit 1
+}
+
+load_config() {
+  [ -f "${config_file}" ] && . "${config_file}"
+}
+
+save_config() {
+  mkdir -p "${config_dir}"
+  cat > "${config_file}" <<EOF
+# mdt configuration
+fullscreen=${fullscreen}
+EOF
+}
+
+settings_menu() {
+  while true; do
+    if [ "${fullscreen}" = "1" ]; then
+      _fs_label="Fullscreen: ON"
+    else
+      _fs_label="Fullscreen: OFF"
+    fi
+
+    _setting="$(gum_choose "${_fs_label}")"
+
+    case "${_setting}" in
+      "Fullscreen:"*)
+        if [ "${fullscreen}" = "1" ]; then
+          fullscreen=0
+        else
+          fullscreen=1
+        fi
+        save_config
+        ;;
+      "")
+        return
+        ;;
+    esac
+  done
 }
 
 gum_choose() {
@@ -637,8 +682,11 @@ set_inbox() {
 
   if [ ! -f "${inbox}" ]; then
     create_file_if_missing "${inbox}"
-    [ -f "${inbox}" ] && printf "%s\n" "${inbox} has been successfully created"
-    exit 0
+    if [ -f "${inbox}" ]; then
+      gum style --foreground="${color}" "✓ Created ${inbox}"
+      sleep 1
+    fi
+    return 1
   fi
 }
 
@@ -694,10 +742,21 @@ main() {
   # Interactive modes require gum
   command -v gum > /dev/null || die "gum is required but not installed, exiting"
 
+  # Load user settings
+  load_config
+
+  # Enter fullscreen mode (alternate screen buffer) if enabled
+  if [ "${fullscreen}" = "1" ]; then
+    tput smcup 2>/dev/null
+    tput civis 2>/dev/null  # Hide cursor
+    trap 'tput cnorm 2>/dev/null; tput rmcup 2>/dev/null' EXIT INT TERM
+  fi
+
   # Main menu loop - ESC at sub-levels returns here
   while true; do
+    [ "${fullscreen}" = "1" ] && clear
     if [ -z "${choice}" ]; then
-      choice="$(gum_choose "List inbox" "Add to inbox" "List" "Add" "Edit")"
+      choice="$(gum_choose "List inbox" "Add to inbox" "List" "Add" "Edit" "Settings")"
     fi
 
     # ESC at main menu exits
@@ -724,6 +783,9 @@ main() {
         ;;
       "Edit")
         edit_todo "$(get_file_with_checkboxes)"
+        ;;
+      "Settings")
+        settings_menu
         ;;
     esac
 
