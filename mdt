@@ -208,11 +208,15 @@ get_header_with_tasks() {
     '/^#/ { header = $0 } /^[-*+] \[.]/ { print header; header = "" }' \
     "${_file}" | grep --invert-match '^$')"
 
-  if [ "$(printf "%s\n" "${_headers}" | wc -l)" -gt 1 ]; then
+  _header_count="$(printf "%s\n" "${_headers}" | wc -l | tr -d ' ')"
+
+  if [ "${_header_count}" -gt 1 ]; then
     _header="$(printf "%s\n" "${_headers}" | gum_choose)"
-    [ -z "${_header}" ] && exit 1
+    [ -z "${_header}" ] && return 1  # ESC pressed, signal to go back
+    _multiple_headers=1
   else
     _header="${_headers}"
+    _multiple_headers=0
   fi
 
   [ -z "${_header}" ] && grep "^#.*" "${_file}" | head -1
@@ -220,38 +224,60 @@ get_header_with_tasks() {
 }
 
 list_open_todos() {
-  [ -f "$1" ] && _file="$1" || exit
+  [ -f "$1" ] && _file="$1" || return 1
 
   if ! grep -E --quiet --no-messages "(-|\*|\+) \[ \]" "${_file}"; then
-    printf "%b\n" "Yey,\033[38;5;${color}m nothing\033[m left to do!" && exit
+    printf "%b\n" "Yey,\033[38;5;${color}m nothing\033[m left to do!" && return 0
   fi
 
   if [ "${unite_tasks}" = true ] || [ "${unite_tasks}" = 1 ]; then
     _items="$(grep -E "(-|\*|\+) \[ \] " "${_file}")"
+    _multiple_headers=0
   else
-    _items="$(awk -v header="$(get_header_with_tasks)" \
-      '$0 ~ header {p=1; next} /^#/ {p=0} p && /[-*+] \[ ] / {print}' "${_file}")"
+    # Check if there are multiple headers (before entering loop)
+    _headers="$(awk \
+      '/^#/ { header = $0 } /^[-*+] \[.]/ { print header; header = "" }' \
+      "${_file}" | grep --invert-match '^$')"
+    _header_count="$(printf "%s\n" "${_headers}" | wc -l | tr -d ' ')"
+    [ "${_header_count}" -gt 1 ] && _multiple_headers=1 || _multiple_headers=0
   fi
 
-  if [ -n "${_items}" ]; then
-    # Add "└─ " at the beginning for subtasks
-    _selected_items="$(printf "%s\n" "${_items}" |
-      sed 's/^ \{0,1\}[-*+] \[ \] //g' |
-      sed 's/^[[:space:]]*[-*+] \[ \] /└─ /g' |
-      gum_choose --no-limit \
-        --cursor-prefix "[ ] " \
-        --selected-prefix "[✓] " \
-        --unselected-prefix "[ ] ")"
-  fi
+  # Loop to allow going back to header selection
+  while true; do
+    if [ "${unite_tasks}" != true ] && [ "${unite_tasks}" != 1 ]; then
+      _header="$(get_header_with_tasks)"
+      # shellcheck disable=SC2181
+      [ $? -ne 0 ] && return 1  # ESC at header selection, go back to main menu
+      [ -z "${_header}" ] && return 1
+      _items="$(awk -v header="${_header}" \
+        '$0 ~ header {p=1; next} /^#/ {p=0} p && /[-*+] \[ ] / {print}' "${_file}")"
+    fi
 
-  [ -z "${_selected_items}" ] && exit
+    if [ -n "${_items}" ]; then
+      # Add "└─ " at the beginning for subtasks
+      _selected_items="$(printf "%s\n" "${_items}" |
+        sed 's/^ \{0,1\}[-*+] \[ \] //g' |
+        sed 's/^[[:space:]]*[-*+] \[ \] /└─ /g' |
+        gum_choose --no-limit \
+          --cursor-prefix "[ ] " \
+          --selected-prefix "[✓] " \
+          --unselected-prefix "[ ] ")"
+    fi
 
-  printf "%s\n" "${_selected_items}" | while read -r item; do
-    escaped_item=$(printf '%s\n' "${item}" |
-      sed 's/└─ //g' |
-      sed 's/[*[\/&]/\\&/g')
-    sed "s/\[ \] ${escaped_item}/\[x\] ${escaped_item}/g" \
-      "${_file}" > "${_file}.bak" && mv "${_file}.bak" "${_file}"
+    # ESC or empty selection: go back if multiple headers, otherwise return to main menu
+    if [ -z "${_selected_items}" ]; then
+      [ "${_multiple_headers}" = 1 ] && continue || return 0
+    fi
+
+    # Process selected items
+    printf "%s\n" "${_selected_items}" | while read -r item; do
+      escaped_item=$(printf '%s\n' "${item}" |
+        sed 's/└─ //g' |
+        sed 's/[*[\/&]/\\&/g')
+      sed "s/\[ \] ${escaped_item}/\[x\] ${escaped_item}/g" \
+        "${_file}" > "${_file}.bak" && mv "${_file}.bak" "${_file}"
+    done
+    break
   done
 }
 
@@ -344,33 +370,43 @@ main() {
     cd "${dir}" || die "Directory does not exist"
   fi
 
-  if [ -z "${choice}" ]; then
-    choice="$(gum_choose "List inbox" "Add inbox" "List" "Add" "Edit")"
-  fi
+  # Main menu loop - ESC at sub-levels returns here
+  while true; do
+    if [ -z "${choice}" ]; then
+      choice="$(gum_choose "List inbox" "Add inbox" "List" "Add" "Edit")"
+    fi
 
-  case "${choice}" in
-    "List")
-      list_open_todos "$(get_file_with_checkboxes ' ')"
-      ;;
-    "List inbox")
-      set_inbox && list_open_todos "${inbox}"
-      ;;
-    "Add")
-      add_todo "$(get_file_with_checkboxes)"
-      ;;
-    "Add inbox")
-      if [ -n "${quick_add_task}" ]; then
-        # Non-interactive mode
-        inbox="${inbox:-${dir}/TODO.md}"
-        quick_add_todo "${inbox}" "${quick_add_task}"
-      else
-        set_inbox && add_todo "${inbox}"
-      fi
-      ;;
-    "Edit")
-      edit_todo "$(get_file_with_checkboxes)"
-      ;;
-  esac
+    # ESC at main menu exits
+    [ -z "${choice}" ] && exit 0
+
+    case "${choice}" in
+      "List")
+        list_open_todos "$(get_file_with_checkboxes ' ')"
+        ;;
+      "List inbox")
+        set_inbox && list_open_todos "${inbox}"
+        ;;
+      "Add")
+        add_todo "$(get_file_with_checkboxes)"
+        ;;
+      "Add inbox")
+        if [ -n "${quick_add_task}" ]; then
+          # Non-interactive mode
+          inbox="${inbox:-${dir}/TODO.md}"
+          quick_add_todo "${inbox}" "${quick_add_task}"
+          exit 0
+        else
+          set_inbox && add_todo "${inbox}"
+        fi
+        ;;
+      "Edit")
+        edit_todo "$(get_file_with_checkboxes)"
+        ;;
+    esac
+
+    # Reset choice for next iteration (allows returning to main menu)
+    choice=""
+  done
 }
 
 main "$@"
