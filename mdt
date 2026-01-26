@@ -27,10 +27,8 @@ print_help() {
 ${me} - command-line markdown todo list manager
 
 Usage
-  ${me} [-d|--dir <arg>] [-i|--inbox <arg>] [-m|--add-multiple]
-  [-u|--unite-tasks] [--color <arg>] [--prompt <arg>]
-  [--cursor <arg>] [--item-width <arg>] [--input-width <arg>]
-  [--editor <arg>] [-v|--version] [-h|--help]
+  ${me} [options]
+  ${me} [options] <task>        Add task to inbox directly
 
 Options
   -d, --dir               Path to the tasks directory
@@ -55,6 +53,7 @@ Options
 }
 
 parse_commandline() {
+  _positional_args=""
   while test $# -gt 0; do
     _key="$1"
     case "${_key}" in
@@ -91,10 +90,23 @@ parse_commandline() {
       --editor=*) file_editor="${_key##--editor=}" ;;
       -v | --version) printf "%s\n" "${me} ${mdt_version}" && exit ;;
       -h | --help) print_help ;;
-      *) die "Got an unexpected argument '$1'" ;;
+      *)
+        # Collect positional arguments as task text
+        if [ -z "${_positional_args}" ]; then
+          _positional_args="$1"
+        else
+          _positional_args="${_positional_args} $1"
+        fi
+        ;;
     esac
     shift
   done
+
+  # If positional arguments were provided, treat them as a task to add
+  if [ -n "${_positional_args}" ]; then
+    quick_add_task="${_positional_args}"
+    choice="Add inbox"
+  fi
 }
 
 die() {
@@ -216,7 +228,6 @@ get_header_with_tasks() {
     _multiple_headers=1
   else
     _header="${_headers}"
-    _multiple_headers=0
   fi
 
   [ -z "${_header}" ] && grep "^#.*" "${_file}" | head -1
@@ -244,6 +255,7 @@ list_open_todos() {
 
   # Loop to allow going back to header selection
   while true; do
+  _selected_items=""
     if [ "${unite_tasks}" != true ] && [ "${unite_tasks}" != 1 ]; then
       _header="$(get_header_with_tasks)"
       # shellcheck disable=SC2181
@@ -274,8 +286,8 @@ list_open_todos() {
       escaped_item=$(printf '%s\n' "${item}" |
         sed 's/└─ //g' |
         sed 's/[*[\/&]/\\&/g')
-      sed "s/\[ \] ${escaped_item}/\[x\] ${escaped_item}/g" \
-        "${_file}" > "${_file}.bak" && mv "${_file}.bak" "${_file}"
+      sed_script=$(printf 's/\\[ \\] %s/\\[x\\] %s/g' "${escaped_item}" "${escaped_item}")
+        sed "${sed_script}" "${_file}" > "${_file}.bak" && mv "${_file}.bak" "${_file}"
     done
     break
   done
