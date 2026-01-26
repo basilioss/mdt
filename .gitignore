@@ -1,0 +1,9 @@
+macOS
+.DS_Store
+
+#Nova
+.nova
+
+# Claude
+.claude
+CLAUDE.md
