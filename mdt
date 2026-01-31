@@ -17,6 +17,13 @@ input_width="${MDT_INPUT_WIDTH:-65}"
 file_editor="${MDT_EDITOR:-${EDITOR}}"
 checkbox_prefix="${MDT_CHECKBOX_PREFIX:--}"
 
+# Config file for persistent settings
+config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/mdt"
+config_file="${config_dir}/config"
+
+# Default settings (can be overridden by config file)
+fullscreen="${MDT_FULLSCREEN:-0}"
+
 ################################################
 
 me="${0##*/}"
@@ -27,27 +34,28 @@ print_help() {
 ${me} - command-line markdown todo list manager
 
 Usage
-  ${me} [-d|--dir <arg>] [-i|--inbox <arg>] [-m|--add-multiple]
-  [-u|--unite-tasks] [--color <arg>] [--prompt <arg>]
-  [--cursor <arg>] [--item-width <arg>] [--input-width <arg>]
-  [--editor <arg>] [-v|--version] [-h|--help]
+  ${me} [options]
+  ${me} <task>                  Add task directly
 
-Options
-  -d, --dir               Path to the tasks directory
-  -i, --inbox             Path to the inbox file
-  -l, --list-inbox        Automatically select 'List inbox' option
-  -a, --add-inbox         Automatically select 'Add inbox' option
-  -e, --edit-inbox        Open inbox note in the editor
-  -m, --add-multiple      Add multiple tasks
-  -u, --unite-tasks       List all tasks in the file
-  --display-titles        Display first heading instead of filename
-  --todo-filename         Filename of the newly created files
+Quick Actions (no gum required)
+  -l, --list [FILTER]     List tasks (filter by keyword if specified)
+  -c, --complete N        Toggle task N complete/incomplete
+  -d, -D, --delete N      Delete task N
+  -e, --edit [N]          Open in editor (at task N if specified)
+  --clear                 Remove all completed tasks
+
+Interactive Mode
+  -a, --add [TASK]        Add task (interactive if TASK omitted)
+  -m, --add-multiple      Add multiple tasks at once
+  -u, --unite-tasks       List all tasks ignoring headers
+
+Configuration
+  --dir                   Path to tasks directory (default: current)
+  --inbox                 Path to inbox file (default: TODO.md)
+  --editor                Editor command (default: \$EDITOR or system default)
   --color                 Main color
-  --prompt                Input prompt character
-  --cursor                Selection character
-  --item-width            Todo items width
-  --input-width           Input prompt width
-  --editor                Markdown file editor
+  --display-titles        Show heading instead of filename
+
   -v, --version           Print version
   -h, --help              Print help
 "
@@ -55,18 +63,45 @@ Options
 }
 
 parse_commandline() {
+  _positional_args=""
   while test $# -gt 0; do
     _key="$1"
     case "${_key}" in
-      -d | --dir) dir="$2" && shift ;;
+      --dir) dir="$2" && shift ;;
       --dir=*) dir="${_key##--dir=}" ;;
-      -i | --inbox) inbox="$2" && shift ;;
+      -d | -D | --delete)
+        delete_task_num="$2" && shift
+        ;;
+      -c | --complete)
+        complete_task_num="$2" && shift
+        ;;
+      --inbox) inbox="$2" && shift ;;
       --inbox=*) inbox="${_key##--inbox=}" ;;
       -m | --add-multiple) add_multiple_tasks=1 ;;
       -u | --unite-tasks) unite_tasks=1 ;;
-      -l | --list-inbox) choice="List inbox" ;;
-      -a | --add-inbox) choice="Add inbox" ;;
-      -e | --edit-inbox) set_inbox && edit_todo "${inbox}" && exit ;;
+      -l | --list)
+        list_inbox_mode=1
+        # Check if next arg is a filter keyword (not a flag)
+        if [ $# -gt 1 ] && [ "${2#-}" = "$2" ]; then
+          list_filter="$2" && shift
+        fi
+        ;;
+      --clear) clear_completed_mode=1 ;;
+      -a | --add)
+        # Check if next arg exists and isn't a flag (for non-interactive add)
+        if [ $# -gt 1 ] && [ "${2#-}" = "$2" ]; then
+          quick_add_task="$2"
+          shift
+        fi
+        choice="Add to inbox"
+        ;;
+      -e | --edit)
+        edit_inbox_mode=1
+        # Check if next arg is a task number
+        if [ $# -gt 1 ] && printf "%s" "$2" | grep -qE '^[0-9]+$'; then
+          edit_task_num="$2" && shift
+        fi
+        ;;
       --display-titles) display_titles=1 ;;
       --todo-filename) todo_filename="$2" && shift ;;
       --todo-filename=*) todo_filename="${_key##--todo-filename=}" ;;
@@ -84,15 +119,66 @@ parse_commandline() {
       --editor=*) file_editor="${_key##--editor=}" ;;
       -v | --version) printf "%s\n" "${me} ${mdt_version}" && exit ;;
       -h | --help) print_help ;;
-      *) die "Got an unexpected argument '$1'" ;;
+      *)
+        # Collect positional arguments as task text
+        if [ -z "${_positional_args}" ]; then
+          _positional_args="$1"
+        else
+          _positional_args="${_positional_args} $1"
+        fi
+        ;;
     esac
     shift
   done
+
+  # If positional arguments were provided, treat them as a task to add
+  if [ -n "${_positional_args}" ]; then
+    quick_add_task="${_positional_args}"
+    choice="Add to inbox"
+  fi
 }
 
 die() {
   printf 'Error: %s.\n' "$1" >&2
   exit 1
+}
+
+load_config() {
+  [ -f "${config_file}" ] && . "${config_file}"
+}
+
+save_config() {
+  mkdir -p "${config_dir}"
+  cat > "${config_file}" <<EOF
+# mdt configuration
+fullscreen=${fullscreen}
+EOF
+}
+
+settings_menu() {
+  while true; do
+    if [ "${fullscreen}" = "1" ]; then
+      _fs_label="Fullscreen: ON"
+    else
+      _fs_label="Fullscreen: OFF"
+    fi
+
+    _setting="$(gum_choose "${_fs_label}")"
+
+    case "${_setting}" in
+      "Fullscreen:"*)
+        if [ "${fullscreen}" = "1" ]; then
+          fullscreen=0
+        else
+          fullscreen=1
+        fi
+        save_config
+        ;;
+      "")
+        return
+        ;;
+    esac
+  done
 }
 
 gum_choose() {
@@ -131,7 +217,6 @@ create_file_if_missing() {
   fi
 }
 
-# TODO: Speed up and refactor display_titles
 get_file_with_checkboxes() {
   # If checkbox type isn't specified, use any
   # For example: [x] [ ] [-] [/] [>] [<] ...
@@ -181,7 +266,16 @@ get_file_with_checkboxes() {
   # Remove .md file extensions if exist
   [ "${_file##*.}" = "md" ] && _file="${_file%.*}"
 
-  [ -n "${_file}" ] && _file="${dir}/${_file}.md" || exit
+  # Build full path, but avoid doubling if already absolute
+  if [ -z "${_file}" ]; then
+    exit
+  elif [ "${_file#/}" != "${_file}" ]; then
+    # Already absolute path (starts with /)
+    _file="${_file}.md"
+  else
+    # Relative path, prepend dir
+    _file="${dir}/${_file}.md"
+  fi
 
   if [ -n "${todo_filename}" ]; then
     _title="${_filename}"
@@ -201,9 +295,12 @@ get_header_with_tasks() {
     '/^#/ { header = $0 } /^[-*+] \[.]/ { print header; header = "" }' \
     "${_file}" | grep --invert-match '^$')"
 
-  if [ "$(printf "%s\n" "${_headers}" | wc -l)" -gt 1 ]; then
+  _header_count="$(printf "%s\n" "${_headers}" | wc -l | tr -d ' ')"
+
+  if [ "${_header_count}" -gt 1 ]; then
     _header="$(printf "%s\n" "${_headers}" | gum_choose)"
-    [ -z "${_header}" ] && exit 1
+    [ -z "${_header}" ] && return 1  # ESC pressed, signal to go back
+    _multiple_headers=1
   else
     _header="${_headers}"
   fi
@@ -213,44 +310,81 @@ get_header_with_tasks() {
 }
 
 list_open_todos() {
-  [ -f "$1" ] && _file="$1" || exit
+  [ -f "$1" ] && _file="$1" || return 1
 
   if ! grep -E --quiet --no-messages "(-|\*|\+) \[ \]" "${_file}"; then
-    printf "%b\n" "Yey,\033[38;5;${color}m nothing\033[m left to do!" && exit
+    printf "%b\n" "Yey,\033[38;5;${color}m nothing\033[m left to do!" && return 0
   fi
 
   if [ "${unite_tasks}" = true ] || [ "${unite_tasks}" = 1 ]; then
     _items="$(grep -E "(-|\*|\+) \[ \] " "${_file}")"
+    _multiple_headers=0
   else
-    _items="$(awk -v header="$(get_header_with_tasks)" \
-      '$0 ~ header {p=1; next} /^#/ {p=0} p && /[-*+] \[ ] / {print}' "${_file}")"
+    # Check if there are multiple headers (before entering loop)
+    _headers="$(awk \
+      '/^#/ { header = $0 } /^[-*+] \[.]/ { print header; header = "" }' \
+      "${_file}" | grep --invert-match '^$')"
+    _header_count="$(printf "%s\n" "${_headers}" | wc -l | tr -d ' ')"
+    [ "${_header_count}" -gt 1 ] && _multiple_headers=1 || _multiple_headers=0
   fi
 
-  if [ -n "${_items}" ]; then
-    # Add "└─ " at the beginning for subtasks
-    _selected_items="$(printf "%s\n" "${_items}" |
-      sed 's/^ \{0,1\}[-*+] \[ \] //g' |
-      sed 's/^[[:space:]]*[-*+] \[ \] /└─ /g' |
-      gum_choose --no-limit \
-        --cursor-prefix "[ ] " \
-        --selected-prefix "[✓] " \
-        --unselected-prefix "[ ] ")"
-  fi
+  # Loop to allow going back to header selection
+  while true; do
+  _selected_items=""
+    if [ "${unite_tasks}" != true ] && [ "${unite_tasks}" != 1 ]; then
+      # Check if file has any headers with tasks
+      if [ -n "${_headers}" ]; then
+        _header="$(get_header_with_tasks)"
+        # shellcheck disable=SC2181
+        [ $? -ne 0 ] && return 1  # ESC at header selection, go back to main menu
+        [ -z "${_header}" ] && return 1
+        _items="$(awk -v header="${_header}" \
+          '$0 ~ header {p=1; next} /^#/ {p=0} p && /[-*+] \[ ] / {print}' "${_file}")"
+      else
+        # No headers, show all open tasks
+        _items="$(grep -E "(-|\*|\+) \[ \] " "${_file}")"
+      fi
+    fi
 
-  [ -z "${_selected_items}" ] && exit
+    if [ -n "${_items}" ]; then
+      # Add "└─ " at the beginning for subtasks
+      _selected_items="$(printf "%s\n" "${_items}" |
+        sed 's/^ \{0,1\}[-*+] \[ \] //g' |
+        sed 's/^[[:space:]]*[-*+] \[ \] /└─ /g' |
+        gum_choose --no-limit \
+          --cursor-prefix "[ ] " \
+          --selected-prefix "[✓] " \
+          --unselected-prefix "[ ] ")"
+    fi
 
-  printf "%s\n" "${_selected_items}" | while read -r item; do
-    escaped_item=$(printf '%s\n' "${item}" |
-      sed 's/└─ //g' |
-      sed 's/[*[\/&]/\\&/g')
-    sed "s/\[ \] ${escaped_item}/\[x\] ${escaped_item}/g" \
-      "${_file}" > "${_file}.bak" && mv "${_file}.bak" "${_file}"
+    # ESC or empty selection: go back if multiple headers, otherwise return to main menu
+    if [ -z "${_selected_items}" ]; then
+      [ "${_multiple_headers}" = 1 ] && continue || return 0
+    fi
+
+    # Process selected items
+    printf "%s\n" "${_selected_items}" | while read -r item; do
+      escaped_item=$(printf '%s\n' "${item}" |
+        sed 's/└─ //g' |
+        sed 's/[*[\/&]/\\&/g')
+      sed_script=$(printf 's/\\[ \\] %s/\\[x\\] %s/g' "${escaped_item}" "${escaped_item}")
+        sed "${sed_script}" "${_file}" > "${_file}.bak" && mv "${_file}.bak" "${_file}"
+    done
+    break
   done
 }
 
 add_todo() {
-  [ -f "$1" ] && _file="$1" || exit
-  _header="$(get_header_with_tasks)" || exit
+  [ -f "$1" ] && _file="$1" || return 1
+
+  # Check if file has headers with tasks
+  _headers="$(awk \
+    '/^#/ { header = $0 } /^[-*+] \[.]/ { print header; header = "" }' \
+    "${_file}" | grep --invert-match '^$')"
+
+  if [ -n "${_headers}" ]; then
+    _header="$(get_header_with_tasks)" || return 1
+  fi
 
   if [ "${add_multiple_tasks}" = true ] || [ "${add_multiple_tasks}" = 1 ]; then
     while true; do
@@ -261,7 +395,7 @@ add_todo() {
     _items="$(gum_input --placeholder "Got something to do?")"
   fi
 
-  [ -z "${_items}" ] && exit
+  [ -z "${_items}" ] && return 0
 
   printf "%b\n" "${_items}" | while read -r _item; do
     [ -z "${_item}" ] && continue
@@ -288,10 +422,256 @@ add_todo() {
   done
 }
 
+# Get line number in file for task N
+get_task_line_num() {
+  _file="$1"
+  _task_num="$2"
+  [ ! -f "${_file}" ] && return 1
+
+  _tasks="$(grep -nE "^[[:space:]]*(-|\*|\+) \[.\]" "${_file}")"
+  [ -z "${_tasks}" ] && return 1
+
+  printf "%s\n" "${_tasks}" | sed -n "${_task_num}p" | cut -d: -f1
+}
+
 edit_todo() {
-  [ -f "$1" ] && _file="$1" || exit
-  [ -z "${file_editor}" ] && die "No editor specified"
-  eval "${file_editor}" "\"${_file}\""
+  [ -f "$1" ] && _file="$1" || return 1
+  _line_num="$2"
+
+  # Use configured editor, or fall back to system default
+  if [ -z "${file_editor}" ]; then
+    # Note: line number not supported with system default
+    [ -n "${_line_num}" ] && printf "Note: Set \$EDITOR to jump to specific lines\n"
+    # macOS: use 'open' to launch default app
+    if command -v open > /dev/null 2>&1; then
+      open "${_file}"
+      return 0
+    fi
+    # Linux: try xdg-open
+    if command -v xdg-open > /dev/null 2>&1; then
+      xdg-open "${_file}"
+      return 0
+    fi
+    # No fallback available
+    printf "No editor configured. Set one of these in your shell profile:\n\n"
+    printf "  export EDITOR=nano           # simple editor\n"
+    printf "  export EDITOR=vim            # vim\n"
+    printf "  export EDITOR='code --wait'  # VS Code\n"
+    printf "  export MDT_EDITOR=nano       # mdt-specific override\n\n"
+    printf "Add the line to ~/.bashrc, ~/.zshrc, or ~/.profile\n"
+    exit 1
+  fi
+
+  if [ -n "${_line_num}" ]; then
+    # Open editor at specific line - syntax varies by editor
+    case "${file_editor}" in
+      *code*|*codium*)
+        # VS Code / Codium: code -g file:line
+        eval "${file_editor}" "-g \"${_file}:${_line_num}\""
+        ;;
+      *subl*|*sublime*)
+        # Sublime Text: subl file:line
+        eval "${file_editor}" "\"${_file}:${_line_num}\""
+        ;;
+      *)
+        # Most editors (vim, nvim, nano, emacs, etc): editor +line file
+        eval "${file_editor}" "+${_line_num}" "\"${_file}\""
+        ;;
+    esac
+  else
+    eval "${file_editor}" "\"${_file}\""
+  fi
+}
+
+# Non-interactive add: appends a task directly to the file
+quick_add_todo() {
+  _file="$1"
+  _task="$2"
+
+  # Create file with header if it doesn't exist
+  if [ ! -f "${_file}" ]; then
+    _basename="$(basename "${_file}" .md)"
+    printf "%s\n\n" "# ${_basename}" > "${_file}"
+  fi
+
+  # Add checkbox prefix if not already present
+  _checkbox="$(printf "%s\n" "${_task}" | grep --only-matching "^\[.\?\] ")"
+  [ -z "${_checkbox}" ] && _task="[ ] ${_task}"
+
+  # Ensure file ends with newline before appending
+  [ -n "$(tail -c 1 "${_file}")" ] && printf "\n" >> "${_file}"
+  printf "%s %s\n" "${checkbox_prefix}" "${_task}" >> "${_file}"
+  printf "✓ Added: %s\n" "${_task}"
+}
+
+# List all tasks with line numbers (non-interactive)
+list_tasks_numbered() {
+  _file="$1"
+  _recursive="$2"
+  _filter="$3"
+  _all_tasks=""
+
+  if [ -n "${_recursive}" ]; then
+    # Find all TODO.md files in current dir and subdirs (recursively)
+    _files="${_file}"
+    _inbox_name="$(basename "${_file}")"
+    while IFS= read -r _subfile; do
+      [ -n "${_subfile}" ] && [ -f "${_subfile}" ] && _files="${_files}
+${_subfile}"
+    done <<EOF
+$(find . -mindepth 2 -name "${_inbox_name}" -not -path '*/.*' 2>/dev/null)
+EOF
+  else
+    _files="${_file}"
+  fi
+
+  # Collect all tasks with folder prefixes
+  for _current_file in $(printf "%s\n" "${_files}"); do
+    [ ! -f "${_current_file}" ] && continue
+
+    # Get folder prefix for subfolder files
+    _folder=""
+    if [ "${_current_file}" != "${_file}" ]; then
+      _folder="$(dirname "${_current_file}")"
+    fi
+
+    while IFS= read -r line; do
+      [ -z "${line}" ] && continue
+      _content="${line#*:}"
+      _task_text="$(printf "%s" "${_content}" | sed 's/^[[:space:]]*[-*+] \[.\] //')"
+
+      # Add folder prefix if from subfolder
+      if [ -n "${_folder}" ]; then
+        _task_text="[${_folder}] ${_task_text}"
+      fi
+
+      # Apply filter if specified
+      if [ -n "${_filter}" ]; then
+        printf "%s" "${_task_text}" | grep -qi "${_filter}" || continue
+      fi
+
+      # Mark completed tasks with a special prefix
+      if printf "%s" "${_content}" | grep -qE "\[x\]"; then
+        _all_tasks="${_all_tasks}DONE:${_task_text}
+"
+      else
+        _all_tasks="${_all_tasks}TODO:${_task_text}
+"
+      fi
+    done <<EOF
+$(grep -nE "^[[:space:]]*(-|\*|\+) \[.\]" "${_current_file}" 2>/dev/null)
+EOF
+  done
+
+  if [ -z "${_all_tasks}" ]; then
+    if [ ! -f "${_file}" ] && [ -z "${_recursive}" ]; then
+      die "File not found: ${_file}"
+    fi
+    printf "No tasks found.\n"
+    return 0
+  fi
+
+  # Output with proper numbering and count stats
+  _num=1
+  printf "%s" "${_all_tasks}" | while IFS= read -r line; do
+    [ -z "${line}" ] && continue
+    _status="${line%%:*}"
+    _task="${line#*:}"
+    if [ "${_status}" = "DONE" ]; then
+      printf "\033[9m%d. %s\033[0m\n" "${_num}" "${_task}"
+    else
+      printf "%d. %s\n" "${_num}" "${_task}"
+    fi
+    _num=$((_num + 1))
+  done
+
+  # Count tasks for summary
+  _total=$(printf "%s" "${_all_tasks}" | grep -c "^TODO:\|^DONE:")
+  _done=$(printf "%s" "${_all_tasks}" | grep -c "^DONE:")
+  _open=$((_total - _done))
+  printf "\n\033[2m%d tasks (%d open, %d done)\033[0m\n" "${_total}" "${_open}" "${_done}"
+}
+
+# Remove all completed tasks from inbox
+clear_completed() {
+  _file="$1"
+  [ ! -f "${_file}" ] && die "File not found: ${_file}"
+
+  _count=$(grep -cE "^[[:space:]]*(-|\*|\+) \[x\]" "${_file}" 2>/dev/null || echo "0")
+
+  if [ "${_count}" -eq 0 ]; then
+    printf "No completed tasks to clear.\n"
+    return 0
+  fi
+
+  # Remove lines with completed tasks
+  sed -i.bak '/^[[:space:]]*[-*+] \[x\]/d' "${_file}" && rm -f "${_file}.bak"
+  printf "✓ Cleared %d completed task(s)\n" "${_count}"
+}
+
+# Delete task by number
+delete_task() {
+  _file="$1"
+  _task_num="$2"
+  [ ! -f "${_file}" ] && die "File not found: ${_file}"
+
+  # Get all task lines with their line numbers
+  _tasks="$(grep -nE "^[[:space:]]*(-|\*|\+) \[.\]" "${_file}")"
+  _total="$(printf "%s\n" "${_tasks}" | wc -l | tr -d ' ')"
+
+  if [ -z "${_tasks}" ] || [ "${_total}" -eq 0 ]; then
+    die "No tasks found"
+  fi
+
+  if [ "${_task_num}" -lt 1 ] || [ "${_task_num}" -gt "${_total}" ]; then
+    die "Invalid task number: ${_task_num} (valid: 1-${_total})"
+  fi
+
+  # Get the actual line number in the file for task N
+  _line_num="$(printf "%s\n" "${_tasks}" | sed -n "${_task_num}p" | cut -d: -f1)"
+  _task_text="$(printf "%s\n" "${_tasks}" | sed -n "${_task_num}p" | cut -d: -f2- | sed 's/^[[:space:]]*[-*+] \[.\] //')"
+
+  # Delete the line
+  sed "${_line_num}d" "${_file}" > "${_file}.bak" && mv "${_file}.bak" "${_file}"
+  printf "✗ Deleted: %s\n" "${_task_text}"
+}
+
+# Toggle completion of task by number
+complete_task() {
+  _file="$1"
+  _task_num="$2"
+  [ ! -f "${_file}" ] && die "File not found: ${_file}"
+
+  # Get all task lines with their line numbers
+  _tasks="$(grep -nE "^[[:space:]]*(-|\*|\+) \[.\]" "${_file}")"
+  _total="$(printf "%s\n" "${_tasks}" | wc -l | tr -d ' ')"
+
+  if [ -z "${_tasks}" ] || [ "${_total}" -eq 0 ]; then
+    die "No tasks found"
+  fi
+
+  if [ "${_task_num}" -lt 1 ] || [ "${_task_num}" -gt "${_total}" ]; then
+    die "Invalid task number: ${_task_num} (valid: 1-${_total})"
+  fi
+
+  # Get the actual line number in the file
+  _line_num="$(printf "%s\n" "${_tasks}" | sed -n "${_task_num}p" | cut -d: -f1)"
+  _line_content="$(sed -n "${_line_num}p" "${_file}")"
+  _task_text="$(printf "%s" "${_line_content}" | sed 's/^[[:space:]]*[-*+] \[.\] //')"
+
+  # Toggle the checkbox
+  if printf "%s" "${_line_content}" | grep -qE "\[ \]"; then
+    # Mark as complete
+    _new_line="$(printf "%s" "${_line_content}" | sed 's/\[ \]/[x]/')"
+    printf "✓ Completed: %s\n" "${_task_text}"
+  else
+    # Mark as incomplete
+    _new_line="$(printf "%s" "${_line_content}" | sed 's/\[x\]/[ ]/')"
+    printf "○ Reopened: %s\n" "${_task_text}"
+  fi
+
+  # Replace the line
+  sed "${_line_num}s/.*/${_new_line}/" "${_file}" > "${_file}.bak" && mv "${_file}.bak" "${_file}"
 }
 
 # If inbox isn't specified, use default.
@@ -302,13 +682,15 @@ set_inbox() {
 
   if [ ! -f "${inbox}" ]; then
     create_file_if_missing "${inbox}"
-    [ -f "${inbox}" ] && printf "%s\n" "${inbox} has been successfully created"
-    exit 0
+    if [ -f "${inbox}" ]; then
+      gum style --foreground="${color}" "✓ Created ${inbox}"
+      sleep 1
+    fi
+    return 1
   fi
 }
 
 main() {
-  command -v gum > /dev/null || die "gum is required but not installed, exiting"
   parse_commandline "$@"
 
   if [ -z "${dir}" ]; then
@@ -318,27 +700,98 @@ main() {
     cd "${dir}" || die "Directory does not exist"
   fi
 
-  if [ -z "${choice}" ]; then
-    choice="$(gum_choose "List inbox" "Add inbox" "List" "Add" "Edit")"
+  inbox="${inbox:-${dir}/TODO.md}"
+
+  # Quick action modes (non-interactive, no gum required)
+  if [ -n "${list_inbox_mode}" ]; then
+    # Always scan subfolders by default
+    list_tasks_numbered "${inbox}" "1" "${list_filter}"
+    exit 0
   fi
 
-  case "${choice}" in
-    "List")
-      list_open_todos "$(get_file_with_checkboxes ' ')"
-      ;;
-    "List inbox")
-      set_inbox && list_open_todos "${inbox}"
-      ;;
-    "Add")
-      add_todo "$(get_file_with_checkboxes)"
-      ;;
-    "Add inbox")
-      set_inbox && add_todo "${inbox}"
-      ;;
-    "Edit")
-      edit_todo "$(get_file_with_checkboxes)"
-      ;;
-  esac
+  if [ -n "${clear_completed_mode}" ]; then
+    clear_completed "${inbox}"
+    exit 0
+  fi
+
+  if [ -n "${delete_task_num}" ]; then
+    delete_task "${inbox}" "${delete_task_num}"
+    exit 0
+  fi
+
+  if [ -n "${complete_task_num}" ]; then
+    complete_task "${inbox}" "${complete_task_num}"
+    exit 0
+  fi
+
+  if [ -n "${edit_inbox_mode}" ]; then
+    # Create inbox if it doesn't exist
+    if [ ! -f "${inbox}" ]; then
+      printf "%s\n\n" "# TODO" > "${inbox}"
+    fi
+    if [ -n "${edit_task_num}" ]; then
+      _line="$(get_task_line_num "${inbox}" "${edit_task_num}")"
+      [ -z "${_line}" ] && die "Task ${edit_task_num} not found"
+      edit_todo "${inbox}" "${_line}"
+    else
+      edit_todo "${inbox}"
+    fi
+    exit 0
+  fi
+
+  # Interactive modes require gum
+  command -v gum > /dev/null || die "gum is required but not installed, exiting"
+
+  # Load user settings
+  load_config
+
+  # Enter fullscreen mode (alternate screen buffer) if enabled
+  if [ "${fullscreen}" = "1" ]; then
+    tput smcup 2>/dev/null
+    tput civis 2>/dev/null  # Hide cursor
+    trap 'tput cnorm 2>/dev/null; tput rmcup 2>/dev/null' EXIT INT TERM
+  fi
+
+  # Main menu loop - ESC at sub-levels returns here
+  while true; do
+    [ "${fullscreen}" = "1" ] && clear
+    if [ -z "${choice}" ]; then
+      choice="$(gum_choose "List inbox" "Add to inbox" "List" "Add" "Edit" "Settings")"
+    fi
+
+    # ESC at main menu exits
+    [ -z "${choice}" ] && exit 0
+
+    case "${choice}" in
+      "List")
+        list_open_todos "$(get_file_with_checkboxes ' ')"
+        ;;
+      "List inbox")
+        set_inbox && list_open_todos "${inbox}"
+        ;;
+      "Add")
+        add_todo "$(get_file_with_checkboxes)"
+        ;;
+      "Add to inbox")
+        if [ -n "${quick_add_task}" ]; then
+          # Non-interactive mode
+          quick_add_todo "${inbox}" "${quick_add_task}"
+          exit 0
+        else
+          set_inbox && add_todo "${inbox}"
+        fi
+        ;;
+      "Edit")
+        edit_todo "$(get_file_with_checkboxes)"
+        ;;
+      "Settings")
+        settings_menu
+        ;;
+    esac
+
+    # Reset choice for next iteration (allows returning to main menu)
+    choice=""
+  done
 }
 
 main "$@"
